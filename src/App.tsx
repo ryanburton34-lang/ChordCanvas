@@ -73,7 +73,6 @@ const BRAND = {
   dangerBg: "#FFF1F2",
   dangerBorder: "#FECACA",
   dangerText: "#B91C1C",
-  accentRed: "#f25f5c",
 };
 
 const KEY_OPTIONS = ["#", "A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab"];
@@ -141,46 +140,14 @@ function getNextDuplicateTitle(currentTitle: string, sections: Section[]) {
 
 function getDefaultSongData(): SongData {
   return {
-    title: "Worthy Of It All",
-    artist: "CeCe Winans / Prototype",
+    title: "",
+    artist: "",
     key: "#",
-    bpm: "71",
-    timeSignature: "4/4",
+    bpm: "",
+    timeSignature: "",
     displayMode: "numbers",
-    roadmap: "INTRO V1 CH TURN V1 CHx2 INST BR BR2 CHx2",
-    sections: [
-      {
-        id: makeId(),
-        type: "INTRO",
-        title: "INTRO",
-        note: "Pad, keys, electric",
-        content: "| 4 | 5 | 4 | 5 |\n| 4 | 5 | 4 | 5 |",
-      },
-      {
-        id: makeId(),
-        type: "VERSE",
-        title: "VERSE",
-        note: "Keys and electric",
-        content:
-          "All the saints and angels\nBow before Your throne\nAll the elders cast\nTheir [1/3]crowns before the [4]Lamb\nOf [5]God and sing [1]",
-      },
-      {
-        id: makeId(),
-        type: "CHORUS",
-        title: "CHORUS",
-        note: "ALL OUT!!",
-        content:
-          "You're worthy of it [1]all\nYou're worthy of it [5]all\nFor from You [1/3]are all [4]things\nAnd to You [6m]are all [5]things\nYou deserve the [1]glor{Trashcan!!}y",
-      },
-      {
-        id: makeId(),
-        type: "BRIDGE",
-        title: "BRIDGE 2",
-        note: "Build, four on the floor",
-        content:
-          "{BUILD!!} [1/5]Day and night, night and day\nLet incense a[3m]rise\n[6m]Day and night, night and day\nLet incense a[4]rise\n[1/5]Day and night, night and day\nLet incense a[5]rise\n[2m]Day and night, night and day [4] | [4] |",
-      },
-    ],
+    roadmap: "",
+    sections: [],
   };
 }
 
@@ -341,24 +308,6 @@ function isBarLineContent(line: string) {
   return line.includes("|");
 }
 
-function renderAngleMarkers(text: string) {
-  return text.split(/(<>)/g).map((part, index) =>
-    part === "<>" ? (
-      <span
-        key={index}
-        style={{
-          color: BRAND.accentRed,
-          fontWeight: 700,
-        }}
-      >
-        {"<>"}
-      </span>
-    ) : (
-      <React.Fragment key={index}>{part}</React.Fragment>
-    ),
-  );
-}
-
 function getChordTextStyle(compact: boolean): React.CSSProperties {
   return {
     fontSize: compact ? 12 : 15,
@@ -371,7 +320,7 @@ function getChordTextStyle(compact: boolean): React.CSSProperties {
 
 function renderBarLine(line: string, key: string, displayMode: DisplayMode, compact: boolean) {
   const forceNumbersOnly = key === "#";
-  const parts = line.split(/(\[[^\]]+\]|<>)/g);
+  const parts = line.split(/(\[[^\]]+\])/g);
 
   return (
     <span
@@ -384,20 +333,6 @@ function renderBarLine(line: string, key: string, displayMode: DisplayMode, comp
       }}
     >
       {parts.map((part, index) => {
-        if (part === "<>") {
-          return (
-            <span
-              key={index}
-              style={{
-                color: BRAND.accentRed,
-                fontWeight: 700,
-              }}
-            >
-              {"<>"}
-            </span>
-          );
-        }
-
         const chordMatch = part.match(/^\[([^\]]+)\]$/);
         if (chordMatch) {
           const token = chordMatch[1].trim();
@@ -411,7 +346,7 @@ function renderBarLine(line: string, key: string, displayMode: DisplayMode, comp
           );
         }
 
-        return <span key={index}>{renderAngleMarkers(part)}</span>;
+        return <span key={index}>{part}</span>;
       })}
     </span>
   );
@@ -481,7 +416,7 @@ function renderInlineLine(line: string, key: string, displayMode: DisplayMode, c
                     style={{
                       fontSize: compact ? 11 : 14,
                       fontWeight: 700,
-                      color: BRAND.accentRed,
+                      color: "#f25f5c",
                       fontStyle: "italic",
                     }}
                   >
@@ -490,7 +425,7 @@ function renderInlineLine(line: string, key: string, displayMode: DisplayMode, c
                 )}
               </span>
             )}
-            <span>{renderAngleMarkers(segment.lyric)}</span>
+            <span>{segment.lyric}</span>
           </span>
         );
       })}
@@ -771,7 +706,7 @@ function SectionCard({
           {section.note && (
             <>
               <span style={{ color: "#111827", fontWeight: 700 }}> - </span>
-              <span style={{ color: BRAND.accentRed, fontWeight: 700 }}>{section.note}</span>
+              <span style={{ color: "#f25f5c", fontWeight: 700 }}>{section.note}</span>
             </>
           )}
         </div>
@@ -860,13 +795,13 @@ function PageSections({ page, songKey, effectiveDisplayMode, printMode = false }
 }
 
 export default function App() {
-  const [title, setTitle] = useState("Worthy Of It All");
-  const [artist, setArtist] = useState("CeCe Winans / Prototype");
+  const [title, setTitle] = useState("");
+  const [artist, setArtist] = useState("");
   const [songKey, setSongKey] = useState("#");
-  const [bpm, setBpm] = useState("71");
-  const [timeSignature, setTimeSignature] = useState("4/4");
+  const [bpm, setBpm] = useState("");
+  const [timeSignature, setTimeSignature] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("numbers");
-  const [roadmap, setRoadmap] = useState("INTRO V1 CH TURN V1 CHx2 INST BR BR2 CHx2");
+  const [roadmap, setRoadmap] = useState("");
   const [sections, setSections] = useState<Section[]>([]);
   const [autosaveStatus, setAutosaveStatus] = useState("Not saved yet");
   const [songLibrary, setSongLibrary] = useState<LibrarySong[]>([]);
@@ -962,11 +897,11 @@ export default function App() {
       const saved = localStorage.getItem(AUTOSAVE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as SongData;
-        setTitle(parsed.title ?? "Worthy Of It All");
-        setArtist(parsed.artist ?? "CeCe Winans / Prototype");
+        setTitle(parsed.title ?? "");
+        setArtist(parsed.artist ?? "");
         setSongKey(parsed.key ?? "#");
-        setBpm(parsed.bpm ?? "71");
-        setTimeSignature(parsed.timeSignature ?? "4/4");
+        setBpm(parsed.bpm ?? "");
+        setTimeSignature(parsed.timeSignature ?? "");
         setDisplayMode(parsed.displayMode ?? "numbers");
         setRoadmap(parsed.roadmap ?? "");
         setSections(normalizeSections(parsed.sections));
@@ -989,8 +924,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (sections.length === 0) return;
-
     const payload: SongData = {
       title,
       artist,
@@ -1137,7 +1070,7 @@ export default function App() {
     setArtist(song.artist ?? "");
     setSongKey(song.key ?? "#");
     setBpm(song.bpm ?? "");
-    setTimeSignature(song.timeSignature ?? "4/4");
+    setTimeSignature(song.timeSignature ?? "");
     setDisplayMode(song.displayMode ?? "numbers");
     setRoadmap(song.roadmap ?? "");
     setSections(normalizeSections(song.sections));
@@ -1243,14 +1176,14 @@ export default function App() {
 
   function createNewSong() {
     const blank: SongData = {
-      title: "New Song",
+      title: "",
       artist: "",
       key: "#",
       bpm: "",
-      timeSignature: "4/4",
+      timeSignature: "",
       displayMode: "numbers",
       roadmap: "",
-      sections: [getTemplateSection("VERSE")],
+      sections: [],
     };
     loadSongIntoEditor(blank);
   }
