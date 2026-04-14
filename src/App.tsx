@@ -120,24 +120,6 @@ function normalizeSections(sections: Section[] | undefined): Section[] {
   }));
 }
 
-function getNextDuplicateTitle(currentTitle: string, sections: Section[]) {
-  const cleanTitle = currentTitle.trim() || "Untitled Block";
-  const baseTitle = cleanTitle.replace(/\s+\d+$/, "").trim() || cleanTitle;
-  const escapedBase = baseTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const exactPattern = new RegExp(`^${escapedBase}(?:\\s+(\\d+))?$`, "i");
-
-  let maxNumber = 1;
-
-  sections.forEach((section) => {
-    const match = section.title.trim().match(exactPattern);
-    if (!match) return;
-    const n = match[1] ? Number(match[1]) : 1;
-    if (!Number.isNaN(n)) maxNumber = Math.max(maxNumber, n);
-  });
-
-  return `${baseTitle} ${maxNumber + 1}`;
-}
-
 function getDefaultSongData(): SongData {
   return {
     title: "",
@@ -1732,22 +1714,30 @@ export default function App() {
   </div>
 
   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-    <button
-      type="button"
-      style={secondaryButtonStyleSmall}
-      onClick={() => duplicateSection(section.id)}
-    >
-      Duplicate
-    </button>
+  <button
+    type="button"
+    style={dangerButtonStyleSmall}
+    onClick={() => removeSection(section.id)}
+  >
+    Delete
+  </button>
 
-    <button
-      type="button"
-      style={secondaryButtonStyleSmall}
-      onClick={() => toggleSectionCollapsed(section.id)}
-    >
-      {isCollapsed ? "Expand" : "Collapse"}
-    </button>
-  </div>
+  <button
+    type="button"
+    style={secondaryButtonStyleSmall}
+    onClick={() => duplicateSection(section.id)}
+  >
+    Duplicate
+  </button>
+
+  <button
+    type="button"
+    style={secondaryButtonStyleSmall}
+    onClick={() => toggleSectionCollapsed(section.id)}
+  >
+    {isCollapsed ? "Expand" : "Collapse"}
+  </button>
+</div>
 </div>
 
                         {!isCollapsed && (
@@ -1787,14 +1777,7 @@ export default function App() {
                               Use inline chord tags like [1], [5], [6m], [1/3] and dynamic notes like {"{BUILD!!}"}.
                             </p>
 
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-  <button style={dangerButtonStyle} onClick={() => removeSection(section.id)}>
-    Delete
-  </button>
-  <button style={secondaryButtonStyle} onClick={() => duplicateSection(section.id)}>
-    Duplicate
-  </button>
-</div>
+                            <div />
                           </>
                         )}
                       </div>
@@ -2113,16 +2096,6 @@ const secondaryButtonStyleSmall: React.CSSProperties = {
   fontWeight: 600,
   cursor: "pointer",
   fontSize: 12,
-};
-
-const dangerButtonStyle: React.CSSProperties = {
-  padding: "10px 14px",
-  borderRadius: 12,
-  border: `1px solid ${BRAND.dangerBorder}`,
-  background: BRAND.dangerBg,
-  color: BRAND.dangerText,
-  fontWeight: 700,
-  cursor: "pointer",
 };
 
 const dangerButtonStyleSmall: React.CSSProperties = {
