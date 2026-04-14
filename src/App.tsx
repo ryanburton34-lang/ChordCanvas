@@ -1102,8 +1102,7 @@ export default function App() {
     };
 
     setSections((current) => [...current, duplicated]);
-    setCollapsedSections((current) => ({ ...current, [duplicated.id]: false }));
-    setFocusSectionTitleId(duplicated.id);
+    setCollapsedSections((current) => ({ ...current, [duplicated.id]: true }));
   }
 
   function removeSection(id: string) {
@@ -1744,13 +1743,22 @@ export default function App() {
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            style={secondaryButtonStyleSmall}
-                            onClick={() => toggleSectionCollapsed(section.id)}
-                          >
-                            {isCollapsed ? "Expand" : "Collapse"}
-                          </button>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button
+                              type="button"
+                              style={secondaryButtonStyleSmall}
+                              onClick={() => duplicateSection(section.id)}
+                            >
+                              Duplicate
+                            </button>
+                            <button
+                              type="button"
+                              style={secondaryButtonStyleSmall}
+                              onClick={() => toggleSectionCollapsed(section.id)}
+                            >
+                              {isCollapsed ? "Expand" : "Collapse"}
+                            </button>
+                          </div>
                         </div>
 
                         {!isCollapsed && (
@@ -1791,23 +1799,6 @@ export default function App() {
                             </p>
 
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                              <button
-                                style={secondaryButtonStyle}
-                                onClick={() => moveSection(section.id, "up")}
-                                disabled={index === 0}
-                              >
-                                Move up
-                              </button>
-                              <button
-                                style={secondaryButtonStyle}
-                                onClick={() => moveSection(section.id, "down")}
-                                disabled={index === sections.length - 1}
-                              >
-                                Move down
-                              </button>
-                              <button style={secondaryButtonStyle} onClick={() => duplicateSection(section.id)}>
-                                Duplicate
-                              </button>
                               <button style={dangerButtonStyle} onClick={() => removeSection(section.id)}>
                                 Delete
                               </button>
