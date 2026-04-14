@@ -1618,7 +1618,7 @@ export default function App() {
               </p>
 
               <div style={{ display: "grid", gap: 8 }}>
-                {sections.map((section, index) => {
+                {sections.map((section) => {
                   const isCollapsed = !!collapsedSections[section.id];
                   const isDragging = draggingSectionId === section.id;
                   const wrapperDropBeforeActive =
