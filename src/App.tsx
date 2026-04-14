@@ -1091,40 +1091,29 @@ export default function App() {
     setFocusSectionTitleId(newSection.id);
   }
 
-  function duplicateSection(id: string) {
-    const section = sections.find((item) => item.id === id);
-    if (!section) return;
+ function duplicateSection(id: string) {
+  const section = sections.find((item) => item.id === id);
+  if (!section) return;
 
-    const duplicated = {
-      ...section,
-      id: makeId(),
-      title: getNextDuplicateTitle(section.title, sections),
-    };
+  const duplicated = {
+    ...section,
+    id: makeId(),
+    title: getNextDuplicateTitle(section.title, sections),
+  };
 
-    setSections((current) => [...current, duplicated]);
-    setCollapsedSections((current) => ({ ...current, [duplicated.id]: true }));
-  }
+  setSections((current) => [...current, duplicated]);
+  setCollapsedSections((current) => ({
+    ...current,
+    [duplicated.id]: true,
+  }));
+  setFocusSectionTitleId(null);
+}
 
   function removeSection(id: string) {
     setSections((current) => current.filter((section) => section.id !== id));
     setCollapsedSections((current) => {
       const copy = { ...current };
       delete copy[id];
-      return copy;
-    });
-  }
-
-  function moveSection(id: string, direction: "up" | "down") {
-    setSections((current) => {
-      const index = current.findIndex((section) => section.id === id);
-      if (index === -1) return current;
-
-      const newIndex = direction === "up" ? index - 1 : index + 1;
-      if (newIndex < 0 || newIndex >= current.length) return current;
-
-      const copy = [...current];
-      const [item] = copy.splice(index, 1);
-      copy.splice(newIndex, 0, item);
       return copy;
     });
   }
@@ -1691,75 +1680,76 @@ export default function App() {
                         }}
                       >
                         <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 10,
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                              minWidth: 0,
-                            }}
-                          >
-                            <span
-                              draggable
-                              onDragStart={(e) => {
-                                setDraggingSectionId(section.id);
-                                e.dataTransfer.effectAllowed = "move";
-                                e.dataTransfer.setData("text/plain", section.id);
-                              }}
-                              onDragEnd={() => {
-                                setDraggingSectionId(null);
-                                setDragOverSectionId(null);
-                                setDragInsertPosition(null);
-                              }}
-                              style={{
-                                fontSize: 16,
-                                color: BRAND.muted,
-                                userSelect: "none",
-                                cursor: "grab",
-                                padding: "2px 4px",
-                                borderRadius: 6,
-                              }}
-                              title="Drag to reorder"
-                            >
-                              ⋮⋮
-                            </span>
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  }}
+>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      minWidth: 0,
+    }}
+  >
+    <span
+      draggable
+      onDragStart={(e) => {
+        setDraggingSectionId(section.id);
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", section.id);
+      }}
+      onDragEnd={() => {
+        setDraggingSectionId(null);
+        setDragOverSectionId(null);
+        setDragInsertPosition(null);
+      }}
+      style={{
+        fontSize: 16,
+        color: BRAND.muted,
+        userSelect: "none",
+        cursor: "grab",
+        padding: "2px 4px",
+        borderRadius: 6,
+      }}
+      title="Drag to reorder"
+    >
+      ⋮⋮
+    </span>
 
-                            <div
-                              style={{
-                                fontWeight: 700,
-                                fontSize: 15,
-                                color: BRAND.text,
-                                minWidth: 0,
-                              }}
-                            >
-                              {section.title || "Untitled Block"}
-                            </div>
-                          </div>
+    <div
+      style={{
+        fontWeight: 700,
+        fontSize: 15,
+        color: BRAND.text,
+        minWidth: 0,
+      }}
+    >
+      {section.title || "Untitled Block"}
+    </div>
+  </div>
 
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button
-                              type="button"
-                              style={secondaryButtonStyleSmall}
-                              onClick={() => duplicateSection(section.id)}
-                            >
-                              Duplicate
-                            </button>
-                            <button
-                              type="button"
-                              style={secondaryButtonStyleSmall}
-                              onClick={() => toggleSectionCollapsed(section.id)}
-                            >
-                              {isCollapsed ? "Expand" : "Collapse"}
-                            </button>
-                          </div>
-                        </div>
+  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <button
+      type="button"
+      style={secondaryButtonStyleSmall}
+      onClick={() => duplicateSection(section.id)}
+    >
+      Duplicate
+    </button>
+
+    <button
+      type="button"
+      style={secondaryButtonStyleSmall}
+      onClick={() => toggleSectionCollapsed(section.id)}
+    >
+      {isCollapsed ? "Expand" : "Collapse"}
+    </button>
+  </div>
+</div>
 
                         {!isCollapsed && (
                           <>
@@ -1799,10 +1789,10 @@ export default function App() {
                             </p>
 
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                              <button style={dangerButtonStyle} onClick={() => removeSection(section.id)}>
-                                Delete
-                              </button>
-                            </div>
+  <button style={dangerButtonStyle} onClick={() => removeSection(section.id)}>
+    Delete
+  </button>
+</div>
                           </>
                         )}
                       </div>
