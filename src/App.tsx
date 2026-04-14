@@ -1098,7 +1098,6 @@ export default function App() {
   const duplicated = {
     ...section,
     id: makeId(),
-    title: getNextDuplicateTitle(section.title, sections),
   };
 
   setSections((current) => [...current, duplicated]);
@@ -1791,6 +1790,9 @@ export default function App() {
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
   <button style={dangerButtonStyle} onClick={() => removeSection(section.id)}>
     Delete
+  </button>
+  <button style={secondaryButtonStyle} onClick={() => duplicateSection(section.id)}>
+    Duplicate
   </button>
 </div>
                           </>
