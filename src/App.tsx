@@ -62,7 +62,7 @@ type ThemeTokens = {
 
 const AUTOSAVE_KEY = "chord-chart-builder-autosave-v4";
 const LIBRARY_KEY = "chord-chart-builder-library-v3";
-const DARK_MODE_KEY = "chordcanvas-dark-mode";
+const LOGO_FULL = "/chordcanvas-logo-dark.png";
 
 const PAGE = {
   widthIn: 8.5,
@@ -80,8 +80,6 @@ const PAGINATION = {
 };
 
 const BRAND = {
-  name: "ChordCanvas",
-  tagline: "Where Songs Take Shape",
   primary: "#60A5FA",
   primaryDeep: "#3B82F6",
   accentRed: "#f25f5c",
@@ -91,43 +89,23 @@ const BRAND = {
   dangerText: "#B91C1C",
 };
 
-const THEMES: Record<"light" | "dark", ThemeTokens> = {
-  light: {
-    background: "#F4FAFD",
-    backgroundGlowA: "rgba(102,217,255,0.08)",
-    backgroundGlowB: "rgba(242,180,131,0.07)",
-    panel: "#FFFFFF",
-    panelSoft: "#FBFDFF",
-    panelMuted: "#F8FBFD",
-    text: "#111827",
-    muted: "#5B6B79",
-    border: "#CFE4EF",
-    inputBg: "#FFFFFF",
-    inputText: "#000000",
-    inputPlaceholder: "#94A3B8",
-    shadow: "0 6px 20px rgba(3, 43, 74, 0.08)",
-    cardShadow: "0 2px 8px rgba(3, 43, 74, 0.03)",
-    toolbarBg: "#FFFFFF",
-    toggleBg: "#FFFFFF",
-  },
-  dark: {
-    background: "#121212",
-    backgroundGlowA: "rgba(255,255,255,0.03)",
-    backgroundGlowB: "rgba(255,255,255,0.02)",
-    panel: "#1A1A1A",
-    panelSoft: "#222222",
-    panelMuted: "#181818",
-    text: "#F3F4F6",
-    muted: "#A1A1AA",
-    border: "#343434",
-    inputBg: "#18181B",
-    inputText: "#F8FAFC",
-    inputPlaceholder: "#71717A",
-    shadow: "0 14px 36px rgba(0, 0, 0, 0.45)",
-    cardShadow: "0 8px 20px rgba(0, 0, 0, 0.28)",
-    toolbarBg: "#1A1A1A",
-    toggleBg: "#27272A",
-  },
+const THEME: ThemeTokens = {
+  background: "#121212",
+  backgroundGlowA: "rgba(255,255,255,0.03)",
+  backgroundGlowB: "rgba(255,255,255,0.02)",
+  panel: "#1A1A1A",
+  panelSoft: "#222222",
+  panelMuted: "#181818",
+  text: "#F3F4F6",
+  muted: "#A1A1AA",
+  border: "#343434",
+  inputBg: "#18181B",
+  inputText: "#F8FAFC",
+  inputPlaceholder: "#71717A",
+  shadow: "0 14px 36px rgba(0, 0, 0, 0.45)",
+  cardShadow: "0 8px 20px rgba(0, 0, 0, 0.28)",
+  toolbarBg: "#1A1A1A",
+  toggleBg: "#27272A",
 };
 
 const KEY_OPTIONS = ["#", "A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab"];
@@ -769,6 +747,7 @@ function SectionCard({
             fontSize: compact ? 13 : 17,
             fontWeight: 800,
             textAlign: "left",
+            color: "#111827",
           }}
         >
           {section.title}
@@ -787,6 +766,7 @@ function SectionCard({
             fontSize: compact ? 13 : 18,
             textAlign: "left",
             justifyItems: "start",
+            color: "#111827",
           }}
         >
           {lines.map((line, index) => (
@@ -805,6 +785,7 @@ function SectionCard({
                 breakInside: "avoid",
                 pageBreakInside: "avoid",
                 position: "relative",
+                color: "#111827",
               }}
             >
               {renderInlineLine(line, songKey, effectiveDisplayMode, compact)}
@@ -884,7 +865,6 @@ export default function App() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number>(PAGINATION.headerFallbackHeightPx);
   const [measuredSectionHeights, setMeasuredSectionHeights] = useState<Record<string, number>>({});
-  const [darkMode, setDarkMode] = useState(false);
 
   const editorColumnRef = useRef<HTMLDivElement | null>(null);
   const sectionTitleInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -894,51 +874,7 @@ export default function App() {
   const effectiveDisplayMode: DisplayMode = songKey === "#" ? "numbers" : displayMode;
   const geom = useMemo(() => getPageGeometry(), []);
   const roadmapItems = useMemo(() => splitRoadmap(roadmap), [roadmap]);
-  const theme = darkMode ? THEMES.dark : THEMES.light;
-
-  useEffect(() => {
-    const fontHref = "https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap";
-    const existing = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]')).find((el) =>
-      (el as HTMLLinkElement).href.includes("family=Fredoka"),
-    ) as HTMLLinkElement | undefined;
-
-    if (!existing) {
-      const preconnectA = document.createElement("link");
-      preconnectA.rel = "preconnect";
-      preconnectA.href = "https://fonts.googleapis.com";
-      document.head.appendChild(preconnectA);
-
-      const preconnectB = document.createElement("link");
-      preconnectB.rel = "preconnect";
-      preconnectB.href = "https://fonts.gstatic.com";
-      preconnectB.crossOrigin = "anonymous";
-      document.head.appendChild(preconnectB);
-
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = fontHref;
-      document.head.appendChild(link);
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      const savedDarkMode = localStorage.getItem(DARK_MODE_KEY);
-      if (savedDarkMode !== null) {
-        setDarkMode(savedDarkMode === "true");
-      }
-    } catch (error) {
-      console.error("Failed to load dark mode preference:", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(DARK_MODE_KEY, String(darkMode));
-    } catch (error) {
-      console.error("Failed to save dark mode preference:", error);
-    }
-  }, [darkMode]);
+  const theme = THEME;
 
   useEffect(() => {
     function handleAfterPrint() {
@@ -1324,7 +1260,6 @@ export default function App() {
         fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif',
         padding: 24,
         boxSizing: "border-box",
-        transition: "background 180ms ease, color 180ms ease",
       }}
     >
       <style>{`
@@ -1528,79 +1463,28 @@ export default function App() {
               <div style={panelAccentLineStyle} />
 
               <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  marginBottom: 12,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setDarkMode((current) => !current)}
-                  style={getThemeToggleStyle(theme)}
-                >
-                  {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
-                </button>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  gap: 18,
-                  marginTop: 4,
-                  marginBottom: 18,
-                }}
-              >
-                <img
-                  src="/chordcanvas_icon_1024.png"
-                  alt="ChordCanvas logo"
-                  style={{
-                    width: 120,
-                    height: 120,
-                    borderRadius: 24,
-                    objectFit: "cover",
-                    flexShrink: 0,
-                  }}
-                />
-
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: 6,
-                  }}
-                >
-                  <h1
-                    style={{
-                      margin: 0,
-                      fontSize: 36,
-                      lineHeight: 1,
-                      letterSpacing: "-0.02em",
-                      color: theme.text,
-                      fontFamily:
-                        '"Fredoka", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {BRAND.name}
-                  </h1>
-
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 18,
-                      lineHeight: 1.2,
-                      color: theme.muted,
-                      letterSpacing: "0.01em",
-                    }}
-                  >
-                    {BRAND.tagline}
-                  </p>
-                </div>
-              </div>
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+    marginBottom: 28,
+    width: "100%",
+  }}
+>
+  <img
+    src={LOGO_FULL}
+    alt="ChordCanvas logo"
+    style={{
+      width: 500,
+      maxWidth: "100%",
+      height: "auto",
+      display: "block",
+      objectFit: "contain",
+      background: "transparent",
+    }}
+  />
+</div>
 
               <div style={fieldGridStyle}>
                 <label style={{ ...labelBlockStyle, color: theme.text }}>
@@ -1808,7 +1692,7 @@ export default function App() {
                           borderColor: dragOverSectionId === section.id ? BRAND.primary : theme.border,
                           boxShadow:
                             dragOverSectionId === section.id
-                              ? `0 0 0 2px rgba(5,58,99,0.10), 0 6px 18px rgba(5,58,99,0.12)`
+                              ? `0 0 0 2px rgba(96,165,250,0.14), 0 6px 18px rgba(96,165,250,0.16)`
                               : theme.cardShadow,
                           transition:
                             "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, opacity 180ms ease",
@@ -2103,7 +1987,7 @@ export default function App() {
             </div>
           </div>
         </div>
-      </div> 
+      </div>
 
       <div className="print-root" style={{ display: "none" }}>
         {documentPages.map((page, pageIndex) => (
@@ -2163,7 +2047,6 @@ function getPanelStyle(theme: ThemeTokens): React.CSSProperties {
     padding: 18,
     boxShadow: theme.shadow,
     border: `1px solid ${theme.border}`,
-    transition: "background 180ms ease, border-color 180ms ease, box-shadow 180ms ease",
   };
 }
 
@@ -2178,7 +2061,6 @@ function getInputStyle(theme: ThemeTokens): React.CSSProperties {
     color: theme.inputText,
     background: theme.inputBg,
     outline: "none",
-    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
   };
 }
 
@@ -2195,7 +2077,6 @@ function getTextareaStyle(theme: ThemeTokens): React.CSSProperties {
     resize: "vertical",
     background: theme.inputBg,
     color: theme.inputText,
-    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
   };
 }
 
@@ -2208,7 +2089,7 @@ function getPrimaryButtonStyle(): React.CSSProperties {
     color: "white",
     fontWeight: 700,
     cursor: "pointer",
-    boxShadow: "0 6px 16px rgba(5,58,99,0.18)",
+    boxShadow: "0 6px 16px rgba(96,165,250,0.22)",
   };
 }
 
@@ -2221,7 +2102,6 @@ function getSecondaryButtonStyle(theme: ThemeTokens): React.CSSProperties {
     color: theme.text,
     fontWeight: 600,
     cursor: "pointer",
-    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
   };
 }
 
@@ -2235,7 +2115,6 @@ function getSecondaryButtonStyleSmall(theme: ThemeTokens): React.CSSProperties {
     fontWeight: 600,
     cursor: "pointer",
     fontSize: 12,
-    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
   };
 }
 
@@ -2271,20 +2150,6 @@ function getLibraryCardStyle(theme: ThemeTokens): React.CSSProperties {
     padding: 12,
     background: theme.panelSoft,
     boxShadow: theme.cardShadow,
-  };
-}
-
-function getThemeToggleStyle(theme: ThemeTokens): React.CSSProperties {
-  return {
-    padding: "8px 12px",
-    borderRadius: 12,
-    border: `1px solid ${theme.border}`,
-    background: theme.toggleBg,
-    color: theme.text,
-    fontWeight: 700,
-    cursor: "pointer",
-    boxShadow: theme.cardShadow,
-    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
   };
 }
 
@@ -2340,8 +2205,8 @@ const roadmapChipStyle: React.CSSProperties = {
   padding: "4px 8px",
   fontSize: 11,
   fontWeight: 700,
-  color: BRAND.primary,
-  border: `1px solid rgba(5,58,99,0.10)`,
+  color: BRAND.primaryDeep,
+  border: `1px solid rgba(96,165,250,0.18)`,
 };
 
 const roadmapChipPrintStyle: React.CSSProperties = {
@@ -2350,8 +2215,8 @@ const roadmapChipPrintStyle: React.CSSProperties = {
   padding: "4px 8px",
   fontSize: 11,
   fontWeight: 700,
-  color: BRAND.primary,
-  border: `1px solid rgba(5,58,99,0.10)`,
+  color: BRAND.primaryDeep,
+  border: `1px solid rgba(96,165,250,0.18)`,
   boxShadow: "none",
 };
 
@@ -2368,6 +2233,7 @@ const sectionCardStyle: React.CSSProperties = {
   display: "block",
   width: "100%",
   boxSizing: "border-box",
+  color: "#111827",
 };
 
 const printSectionCardStyle: React.CSSProperties = {
@@ -2383,6 +2249,7 @@ const printSectionCardStyle: React.CSSProperties = {
   display: "block",
   width: "100%",
   boxSizing: "border-box",
+  color: "#111827",
 };
 
 const dropIndicatorStyle: React.CSSProperties = {
@@ -2392,7 +2259,7 @@ const dropIndicatorStyle: React.CSSProperties = {
   height: 4,
   borderRadius: 999,
   background: BRAND.primary,
-  boxShadow: "0 0 0 4px rgba(102,217,255,0.18)",
+  boxShadow: "0 0 0 4px rgba(96,165,250,0.18)",
   transition: "all 120ms ease",
 };
 
