@@ -2290,6 +2290,7 @@ function getThemeToggleStyle(theme: ThemeTokens): React.CSSProperties {
 
 const previewPaperStyle: React.CSSProperties = {
   background: "#f9fafb",
+  color: "#111827",
   borderRadius: 12,
   boxSizing: "border-box",
   margin: "0",
@@ -2297,6 +2298,7 @@ const previewPaperStyle: React.CSSProperties = {
 
 const printPaperStyle: React.CSSProperties = {
   background: "white",
+  color: "#111827",
   borderRadius: 0,
   padding: 0,
   width: "100%",
