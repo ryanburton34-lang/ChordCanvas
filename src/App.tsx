@@ -23,7 +23,6 @@ type SongData = {
   key: string;
   bpm: string;
   timeSignature: string;
-  chartBuilder: string;
   displayMode: DisplayMode;
   roadmap: string;
   sections: Section[];
@@ -156,7 +155,6 @@ function getDefaultSongData(): SongData {
     key: "#",
     bpm: "",
     timeSignature: "",
-    chartBuilder: "",
     displayMode: "numbers",
     roadmap: "",
     sections: [],
@@ -847,7 +845,6 @@ export default function App() {
   const [songKey, setSongKey] = useState("#");
   const [bpm, setBpm] = useState("");
   const [timeSignature, setTimeSignature] = useState("");
-  const [chartBuilder, setChartBuilder] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("numbers");
   const [roadmap, setRoadmap] = useState("");
   const [sections, setSections] = useState<Section[]>([]);
@@ -902,7 +899,6 @@ export default function App() {
         setSongKey(parsed.key ?? "#");
         setBpm(parsed.bpm ?? "");
         setTimeSignature(parsed.timeSignature ?? "");
-        setChartBuilder(parsed.chartBuilder ?? "");
         setDisplayMode(parsed.displayMode ?? "numbers");
         setRoadmap(parsed.roadmap ?? "");
         setSections(normalizedSections);
@@ -922,7 +918,6 @@ export default function App() {
     setSongKey(defaults.key);
     setBpm(defaults.bpm);
     setTimeSignature(defaults.timeSignature);
-    setChartBuilder(defaults.chartBuilder);
     setDisplayMode(defaults.displayMode);
     setRoadmap(defaults.roadmap);
     setSections(defaults.sections);
@@ -935,7 +930,6 @@ export default function App() {
       key: songKey,
       bpm,
       timeSignature,
-      chartBuilder,
       displayMode: effectiveDisplayMode,
       roadmap,
       sections,
@@ -948,7 +942,7 @@ export default function App() {
       console.error("Failed to autosave:", error);
       setAutosaveStatus("Autosave failed");
     }
-  }, [title, artist, songKey, bpm, timeSignature, chartBuilder, effectiveDisplayMode, roadmap, sections]);
+  }, [title, artist, songKey, bpm, timeSignature, effectiveDisplayMode, roadmap, sections]);
 
   useEffect(() => {
     function handleWheel(event: WheelEvent) {
@@ -1031,7 +1025,7 @@ export default function App() {
       window.cancelAnimationFrame(rafA);
       window.cancelAnimationFrame(rafB);
     };
-  }, [sections, title, artist, bpm, timeSignature, chartBuilder, songKey, roadmapItems.length, roadmap, effectiveDisplayMode]);
+  }, [sections, title, artist, bpm, timeSignature, songKey, roadmapItems.length, roadmap, effectiveDisplayMode]);
 
   const documentPages = useMemo(() => {
   return paginateSectionsWithHeights(
@@ -1040,7 +1034,7 @@ export default function App() {
   measuredHeaderHeight,
   geom,
 );
-}, [sections, measuredSectionHeights, measuredHeaderHeight, geom, chartBuilder]);
+}, [sections, measuredSectionHeights, measuredHeaderHeight, geom]);
 
 const isSinglePrintPage = documentPages.length === 1;
 
@@ -1054,7 +1048,6 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
       key: songKey,
       bpm,
       timeSignature,
-      chartBuilder,
       displayMode: effectiveDisplayMode,
       roadmap,
       sections,
@@ -1069,7 +1062,6 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
     setSongKey(song.key ?? "#");
     setBpm(song.bpm ?? "");
     setTimeSignature(song.timeSignature ?? "");
-    setChartBuilder(song.chartBuilder ?? "");
     setDisplayMode(song.displayMode ?? "numbers");
     setRoadmap(song.roadmap ?? "");
     setSections(normalizedSections);
@@ -1172,7 +1164,6 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
       key: "#",
       bpm: "",
       timeSignature: "",
-      chartBuilder: "",
       displayMode: "numbers",
       roadmap: "",
       sections: [],
@@ -1220,7 +1211,6 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
         key: song?.key ?? "#",
         bpm: song?.bpm ?? "",
         timeSignature: song?.timeSignature ?? "",
-        chartBuilder: song?.chartBuilder ?? "",
         displayMode: song?.displayMode ?? "numbers",
         roadmap: song?.roadmap ?? "",
         sections: normalizedSections,
@@ -1517,88 +1507,72 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
               </div>
 
               <div style={fieldGridStyle}>
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Song Title</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </label>
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Song Title</span>
+    <input
+      style={getInputStyle(theme)}
+      value={title}
+      onChange={(e) => setTitle(e.target.value)}
+    />
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Artist</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={artist}
-                    onChange={(e) => setArtist(e.target.value)}
-                  />
-                </label>
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Artist</span>
+    <input
+      style={getInputStyle(theme)}
+      value={artist}
+      onChange={(e) => setArtist(e.target.value)}
+    />
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Chart Builder</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={chartBuilder}
-                    onChange={(e) => setChartBuilder(e.target.value)}
-                  />
-                </label>
+  {/* NEW ROW: Key + Display Mode */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Key</span>
+    <select
+      style={getInputStyle(theme)}
+      value={songKey}
+      onChange={(e) => setSongKey(e.target.value)}
+    >
+      {KEY_OPTIONS.map((key) => (
+        <option key={key} value={key}>
+          {key}
+        </option>
+      ))}
+    </select>
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Display Mode</span>
-                  <select
-                    style={getInputStyle(theme)}
-                    value={effectiveDisplayMode}
-                    onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
-                    disabled={songKey === "#"}
-                  >
-                    <option value="numbers">Numbers</option>
-                    <option value="letters">Letters</option>
-                  </select>
-                </label>
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Display Mode</span>
+    <select
+      style={getInputStyle(theme)}
+      value={effectiveDisplayMode}
+      onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
+      disabled={songKey === "#"}
+    >
+      <option value="numbers">Numbers</option>
+      <option value="letters">Letters</option>
+    </select>
+  </label>
 
-                <div
-                  style={{
-                    gridColumn: "1 / span 2",
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
-                    gap: 12,
-                  }}
-                >
-                  <label style={{ ...labelBlockStyle, color: theme.text }}>
-                    <span>Key</span>
-                    <select
-                      style={getInputStyle(theme)}
-                      value={songKey}
-                      onChange={(e) => setSongKey(e.target.value)}
-                    >
-                      {KEY_OPTIONS.map((key) => (
-                        <option key={key} value={key}>
-                          {key}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+  {/* Bottom row: BPM + Time Signature */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>BPM</span>
+    <input
+      style={getInputStyle(theme)}
+      value={bpm}
+      onChange={(e) => setBpm(e.target.value)}
+    />
+  </label>
 
-                  <label style={{ ...labelBlockStyle, color: theme.text }}>
-                    <span>BPM</span>
-                    <input
-                      style={getInputStyle(theme)}
-                      value={bpm}
-                      onChange={(e) => setBpm(e.target.value)}
-                    />
-                  </label>
-
-                  <label style={{ ...labelBlockStyle, color: theme.text }}>
-                    <span>Time Signature</span>
-                    <input
-                      style={getInputStyle(theme)}
-                      value={timeSignature}
-                      onChange={(e) => setTimeSignature(e.target.value)}
-                    />
-                  </label>
-                </div>
-              </div>
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Time Signature</span>
+    <input
+      style={getInputStyle(theme)}
+      value={timeSignature}
+      onChange={(e) => setTimeSignature(e.target.value)}
+    />
+  </label>
+</div>
 
               {songKey === "#" && (
                 <p style={{ ...helpTextStyle, marginTop: 12, color: theme.muted }}>
