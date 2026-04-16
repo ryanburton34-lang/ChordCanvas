@@ -290,6 +290,24 @@ function isBarLineContent(line: string) {
   return line.includes("|");
 }
 
+function renderAngleMarkers(text: string) {
+  return text.split(/(<>)/g).map((part, index) =>
+    part === "<>" ? (
+      <span
+        key={index}
+        style={{
+          color: "#f25f5c",
+          fontWeight: 700,
+        }}
+      >
+        {"<>"}
+      </span>
+    ) : (
+      <React.Fragment key={index}>{part}</React.Fragment>
+    ),
+  );
+}
+
 function getChordTextStyle(compact: boolean): React.CSSProperties {
   return {
     fontSize: compact ? 12 : 15,
@@ -302,7 +320,7 @@ function getChordTextStyle(compact: boolean): React.CSSProperties {
 
 function renderBarLine(line: string, key: string, displayMode: DisplayMode, compact: boolean) {
   const forceNumbersOnly = key === "#";
-  const parts = line.split(/(\[[^\]]+\])/g);
+  const parts = line.split(/(\[[^\]]+\]|<>)/g);
 
   return (
     <span
@@ -328,7 +346,21 @@ function renderBarLine(line: string, key: string, displayMode: DisplayMode, comp
           );
         }
 
-        return <span key={index}>{part}</span>;
+       if (part === "<>") {
+  return (
+    <span
+      key={index}
+      style={{
+        color: "#f25f5c",
+        fontWeight: 700,
+      }}
+    >
+      {"<>"}
+    </span>
+  );
+}
+
+return <span key={index}>{renderAngleMarkers(part)}</span>;
       })}
     </span>
   );
@@ -407,7 +439,7 @@ function renderInlineLine(line: string, key: string, displayMode: DisplayMode, c
                 )}
               </span>
             )}
-            <span>{segment.lyric}</span>
+            <span>{renderAngleMarkers(segment.lyric)}</span>
           </span>
         );
       })}
@@ -1090,14 +1122,17 @@ export default function App() {
   setFocusSectionTitleId(null);
 }
 
-  function removeSection(id: string) {
-    setSections((current) => current.filter((section) => section.id !== id));
-    setCollapsedSections((current) => {
-      const copy = { ...current };
-      delete copy[id];
-      return copy;
-    });
-  }
+function removeSection(id: string) {
+  const confirmed = window.confirm("Are you sure you want to delete this block?");
+  if (!confirmed) return;
+
+  setSections((current) => current.filter((section) => section.id !== id));
+  setCollapsedSections((current) => {
+    const copy = { ...current };
+    delete copy[id];
+    return copy;
+  });
+}
 
   function toggleSectionCollapsed(id: string) {
     setCollapsedSections((current) => ({
@@ -1192,8 +1227,11 @@ export default function App() {
   }
 
   function deleteLibrarySong(libraryId: string) {
-    setSongLibrary((currentLibrary) => currentLibrary.filter((song) => song.libraryId !== libraryId));
-  }
+  const confirmed = window.confirm("Are you sure you want to delete this song from the library?");
+  if (!confirmed) return;
+
+  setSongLibrary((currentLibrary) => currentLibrary.filter((song) => song.libraryId !== libraryId));
+}
 
   function handlePrint() {
     setIsPrinting(true);
