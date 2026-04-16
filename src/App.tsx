@@ -1853,9 +1853,20 @@ export default function App() {
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-start" }}>
-              <button className="floating-print-button" style={getSecondaryButtonStyle(theme)} onClick={handlePrint}>
-                Print View
-              </button>
+              <button
+  className="floating-print-button"
+  style={{
+  ...getPrimaryButtonStyle(),
+  padding: "14px 18px",
+  fontSize: 15,
+  fontWeight: 700,
+  borderRadius: 14,
+  boxShadow: "0 6px 14px rgba(0,0,0,0.25)",
+}}
+  onClick={handlePrint}
+>
+  Save as PDF
+</button>
             </div>
           </div>
 
