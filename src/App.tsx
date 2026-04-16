@@ -549,7 +549,6 @@ function paginateSectionsWithHeights(
   sectionHeights: Record<string, number>,
   headerHeight: number,
   geom: ReturnType<typeof getPageGeometry>,
-  chartBuilder: string,
 ): PrintPage[] {
   const pages: PrintPage[] = [];
  const footerReserve = 0;
@@ -1036,12 +1035,11 @@ export default function App() {
 
   const documentPages = useMemo(() => {
   return paginateSectionsWithHeights(
-    sections,
-    measuredSectionHeights,
-    measuredHeaderHeight,
-    geom,
-    chartBuilder,
-  );
+  sections,
+  measuredSectionHeights,
+  measuredHeaderHeight,
+  geom,
+);
 }, [sections, measuredSectionHeights, measuredHeaderHeight, geom, chartBuilder]);
 
 const isSinglePrintPage = documentPages.length === 1;
