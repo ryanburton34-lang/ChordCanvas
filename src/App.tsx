@@ -1636,7 +1636,30 @@ export default function App() {
     />
   </label>
 
-  {/* Row 2 */}
+  {/* Row 2 (NEW ORDER) */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Chart Builder</span>
+    <input
+      style={getInputStyle(theme)}
+      value={chartBuilder}
+      onChange={(e) => setChartBuilder(e.target.value)}
+    />
+  </label>
+
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Display Mode</span>
+    <select
+      style={getInputStyle(theme)}
+      value={effectiveDisplayMode}
+      onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
+      disabled={songKey === "#"}
+    >
+      <option value="numbers">Numbers</option>
+      <option value="letters">Letters</option>
+    </select>
+  </label>
+
+  {/* Row 3 */}
   <div
     style={{
       gridColumn: "1 / span 2",
@@ -1678,29 +1701,6 @@ export default function App() {
       />
     </label>
   </div>
-
-  {/* Row 3 */}
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Chart Builder</span>
-    <input
-      style={getInputStyle(theme)}
-      value={chartBuilder}
-      onChange={(e) => setChartBuilder(e.target.value)}
-    />
-  </label>
-
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Display Mode</span>
-    <select
-      style={getInputStyle(theme)}
-      value={effectiveDisplayMode}
-      onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
-      disabled={songKey === "#"}
-    >
-      <option value="numbers">Numbers</option>
-      <option value="letters">Letters</option>
-    </select>
-  </label>
 </div>
 
               {songKey === "#" && (
