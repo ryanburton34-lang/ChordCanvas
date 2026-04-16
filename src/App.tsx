@@ -23,6 +23,7 @@ type SongData = {
   key: string;
   bpm: string;
   timeSignature: string;
+  chartBuilder: string;
   displayMode: DisplayMode;
   roadmap: string;
   sections: Section[];
@@ -77,6 +78,7 @@ const PAGE = {
 const PAGINATION = {
   pageSafetyBufferPx: 8,
   headerFallbackHeightPx: 132,
+  footerReservePx: 28,
 };
 
 const BRAND = {
@@ -160,6 +162,7 @@ function getDefaultSongData(): SongData {
     key: "#",
     bpm: "",
     timeSignature: "",
+    chartBuilder: "",
     displayMode: "numbers",
     roadmap: "",
     sections: [],
@@ -560,11 +563,20 @@ function paginateSectionsWithHeights(
   sectionHeights: Record<string, number>,
   headerHeight: number,
   geom: ReturnType<typeof getPageGeometry>,
+  chartBuilder: string,
 ): PrintPage[] {
   const pages: PrintPage[] = [];
+  const footerReserve = chartBuilder.trim() ? PAGINATION.footerReservePx : 0;
+
   const firstPageColumnLimit =
-    geom.contentHeightPx - headerHeight - PAGE.firstPageExtraTopPx - PAGINATION.pageSafetyBufferPx;
-  const laterPageColumnLimit = geom.contentHeightPx - PAGINATION.pageSafetyBufferPx;
+    geom.contentHeightPx -
+    headerHeight -
+    PAGE.firstPageExtraTopPx -
+    PAGINATION.pageSafetyBufferPx -
+    footerReserve;
+
+  const laterPageColumnLimit =
+    geom.contentHeightPx - PAGINATION.pageSafetyBufferPx - footerReserve;
 
   let currentLimit = Math.max(80, firstPageColumnLimit);
   let currentPage: PrintPage = { left: [], right: [], isFirstPage: true };
@@ -705,6 +717,30 @@ function HeaderBlock({
         ))}
       </div>
     </>
+  );
+}
+
+type FooterBlockProps = {
+  chartBuilder: string;
+};
+
+function FooterBlock({ chartBuilder }: FooterBlockProps) {
+  if (!chartBuilder.trim()) return null;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        right: 24,
+        bottom: 2,
+        textAlign: "right",
+        fontSize: 11,
+        color: "#6B7280",
+        fontWeight: 600,
+      }}
+    >
+      Chart Created By {chartBuilder}
+    </div>
   );
 }
 
@@ -850,6 +886,7 @@ export default function App() {
   const [songKey, setSongKey] = useState("#");
   const [bpm, setBpm] = useState("");
   const [timeSignature, setTimeSignature] = useState("");
+  const [chartBuilder, setChartBuilder] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("numbers");
   const [roadmap, setRoadmap] = useState("");
   const [sections, setSections] = useState<Section[]>([]);
@@ -870,6 +907,7 @@ export default function App() {
   const sectionTitleInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const measureHeaderRef = useRef<HTMLDivElement | null>(null);
   const measureSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const effectiveDisplayMode: DisplayMode = songKey === "#" ? "numbers" : displayMode;
   const geom = useMemo(() => getPageGeometry(), []);
@@ -907,6 +945,7 @@ export default function App() {
               key: song.key || "#",
               bpm: song.bpm || "",
               timeSignature: song.timeSignature || "4/4",
+              chartBuilder: song.chartBuilder || "",
               displayMode: song.displayMode || "numbers",
               roadmap: song.roadmap || "",
               sections: normalizeSections(song.sections),
@@ -922,23 +961,24 @@ export default function App() {
     try {
       const saved = localStorage.getItem(AUTOSAVE_KEY);
       if (saved) {
-  const parsed = JSON.parse(saved) as SongData;
-  const normalizedSections = normalizeSections(parsed.sections);
+        const parsed = JSON.parse(saved) as SongData;
+        const normalizedSections = normalizeSections(parsed.sections);
 
-  setTitle(parsed.title ?? "");
-  setArtist(parsed.artist ?? "");
-  setSongKey(parsed.key ?? "#");
-  setBpm(parsed.bpm ?? "");
-  setTimeSignature(parsed.timeSignature ?? "");
-  setDisplayMode(parsed.displayMode ?? "numbers");
-  setRoadmap(parsed.roadmap ?? "");
-  setSections(normalizedSections);
-  setCollapsedSections(
-    Object.fromEntries(normalizedSections.map((section) => [section.id, true]))
-  );
-  setAutosaveStatus("Loaded autosaved chart");
-  return;
-}
+        setTitle(parsed.title ?? "");
+        setArtist(parsed.artist ?? "");
+        setSongKey(parsed.key ?? "#");
+        setBpm(parsed.bpm ?? "");
+        setTimeSignature(parsed.timeSignature ?? "");
+        setChartBuilder(parsed.chartBuilder ?? "");
+        setDisplayMode(parsed.displayMode ?? "numbers");
+        setRoadmap(parsed.roadmap ?? "");
+        setSections(normalizedSections);
+        setCollapsedSections(
+          Object.fromEntries(normalizedSections.map((section) => [section.id, true])),
+        );
+        setAutosaveStatus("Loaded autosaved chart");
+        return;
+      }
     } catch (error) {
       console.error("Failed to load autosave:", error);
     }
@@ -949,6 +989,7 @@ export default function App() {
     setSongKey(defaults.key);
     setBpm(defaults.bpm);
     setTimeSignature(defaults.timeSignature);
+    setChartBuilder(defaults.chartBuilder);
     setDisplayMode(defaults.displayMode);
     setRoadmap(defaults.roadmap);
     setSections(defaults.sections);
@@ -961,6 +1002,7 @@ export default function App() {
       key: songKey,
       bpm,
       timeSignature,
+      chartBuilder,
       displayMode: effectiveDisplayMode,
       roadmap,
       sections,
@@ -973,7 +1015,7 @@ export default function App() {
       console.error("Failed to autosave:", error);
       setAutosaveStatus("Autosave failed");
     }
-  }, [title, artist, songKey, bpm, timeSignature, effectiveDisplayMode, roadmap, sections]);
+  }, [title, artist, songKey, bpm, timeSignature, chartBuilder, effectiveDisplayMode, roadmap, sections]);
 
   useEffect(() => {
     try {
@@ -1064,11 +1106,17 @@ export default function App() {
       window.cancelAnimationFrame(rafA);
       window.cancelAnimationFrame(rafB);
     };
-  }, [sections, title, artist, bpm, timeSignature, songKey, roadmapItems.length, roadmap, effectiveDisplayMode]);
+  }, [sections, title, artist, bpm, timeSignature, chartBuilder, songKey, roadmapItems.length, roadmap, effectiveDisplayMode]);
 
   const documentPages = useMemo(() => {
-    return paginateSectionsWithHeights(sections, measuredSectionHeights, measuredHeaderHeight, geom);
-  }, [sections, measuredSectionHeights, measuredHeaderHeight, geom]);
+    return paginateSectionsWithHeights(
+      sections,
+      measuredSectionHeights,
+      measuredHeaderHeight,
+      geom,
+      chartBuilder,
+    );
+  }, [sections, measuredSectionHeights, measuredHeaderHeight, geom, chartBuilder]);
 
   const scaledPaperWidth = Math.ceil(geom.pageWidthPx * previewScale);
   const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
@@ -1090,28 +1138,30 @@ export default function App() {
       key: songKey,
       bpm,
       timeSignature,
+      chartBuilder,
       displayMode: effectiveDisplayMode,
       roadmap,
       sections,
     };
   }
 
-function loadSongIntoEditor(song: SongData) {
-  const normalizedSections = normalizeSections(song.sections);
+  function loadSongIntoEditor(song: SongData) {
+    const normalizedSections = normalizeSections(song.sections);
 
-  setTitle(song.title ?? "");
-  setArtist(song.artist ?? "");
-  setSongKey(song.key ?? "#");
-  setBpm(song.bpm ?? "");
-  setTimeSignature(song.timeSignature ?? "");
-  setDisplayMode(song.displayMode ?? "numbers");
-  setRoadmap(song.roadmap ?? "");
-  setSections(normalizedSections);
-  setCollapsedSections(
-    Object.fromEntries(normalizedSections.map((section) => [section.id, true]))
-  );
-  setAutosaveStatus("Loaded song into editor");
-}
+    setTitle(song.title ?? "");
+    setArtist(song.artist ?? "");
+    setSongKey(song.key ?? "#");
+    setBpm(song.bpm ?? "");
+    setTimeSignature(song.timeSignature ?? "");
+    setChartBuilder(song.chartBuilder ?? "");
+    setDisplayMode(song.displayMode ?? "numbers");
+    setRoadmap(song.roadmap ?? "");
+    setSections(normalizedSections);
+    setCollapsedSections(
+      Object.fromEntries(normalizedSections.map((section) => [section.id, true])),
+    );
+    setAutosaveStatus("Loaded song into editor");
+  }
 
   function updateSection(id: string, field: keyof Section, value: string) {
     setSections((current) =>
@@ -1206,6 +1256,7 @@ function loadSongIntoEditor(song: SongData) {
       key: "#",
       bpm: "",
       timeSignature: "",
+      chartBuilder: "",
       displayMode: "numbers",
       roadmap: "",
       sections: [],
@@ -1252,6 +1303,61 @@ function loadSongIntoEditor(song: SongData) {
     if (!confirmed) return;
 
     setSongLibrary((currentLibrary) => currentLibrary.filter((song) => song.libraryId !== libraryId));
+  }
+
+  function saveSongToFile() {
+    const payload = {
+      format: "chordcanvas-song",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      song: getCurrentSongData(),
+    };
+
+    const safeTitle =
+      (title || "untitled-song").replace(/[<>:"/\\|?*]+/g, "").trim() || "untitled-song";
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeTitle}.chordcanvas`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleLoadFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      const song = parsed?.format === "chordcanvas-song" && parsed?.song ? parsed.song : parsed;
+      const normalizedSections = normalizeSections(song?.sections);
+
+      loadSongIntoEditor({
+        title: song?.title ?? "",
+        artist: song?.artist ?? "",
+        key: song?.key ?? "#",
+        bpm: song?.bpm ?? "",
+        timeSignature: song?.timeSignature ?? "",
+        chartBuilder: song?.chartBuilder ?? "",
+        displayMode: song?.displayMode ?? "numbers",
+        roadmap: song?.roadmap ?? "",
+        sections: normalizedSections,
+      });
+
+      setAutosaveStatus(`Loaded file: ${file.name}`);
+    } catch (error) {
+      console.error("Failed to load file:", error);
+      window.alert("That file could not be loaded.");
+    } finally {
+      event.target.value = "";
+    }
   }
 
   function handlePrint() {
@@ -1472,109 +1578,130 @@ function loadSongIntoEditor(song: SongData) {
               <div style={panelAccentLineStyle} />
 
               <div
-  style={{
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8,
-    marginBottom: 28,
-    width: "100%",
-  }}
->
-  <img
-    src={LOGO_FULL}
-    alt="ChordCanvas logo"
-    style={{
-      width: 460,
-      maxWidth: "100%",
-      height: "auto",
-      display: "block",
-      objectFit: "contain",
-      background: "transparent",
-    }}
-  />
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginTop: 8,
+                  marginBottom: 28,
+                  width: "100%",
+                }}
+              >
+                <img
+                  src={LOGO_FULL}
+                  alt="ChordCanvas logo"
+                  style={{
+                    width: 460,
+                    maxWidth: "100%",
+                    height: "auto",
+                    display: "block",
+                    objectFit: "contain",
+                    background: "transparent",
+                  }}
+                />
 
-  <p
-    style={{
-      margin: "10px 0 0 0",
-      fontSize: 18,
-      lineHeight: 1.2,
-      color: theme.muted,
-      letterSpacing: "0.01em",
-      fontWeight: 500,
-      textAlign: "center",
-    }}
-  >
-    Where Songs Take Shape
-  </p>
-</div>
+                <p
+                  style={{
+                    margin: "10px 0 0 0",
+                    fontSize: 18,
+                    lineHeight: 1.2,
+                    color: theme.muted,
+                    letterSpacing: "0.01em",
+                    fontWeight: 500,
+                    textAlign: "center",
+                  }}
+                >
+                  Where Songs Take Shape
+                </p>
+              </div>
 
               <div style={fieldGridStyle}>
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Song Title</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </label>
+  {/* Row 1 */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Song Title</span>
+    <input
+      style={getInputStyle(theme)}
+      value={title}
+      onChange={(e) => setTitle(e.target.value)}
+    />
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Artist</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={artist}
-                    onChange={(e) => setArtist(e.target.value)}
-                  />
-                </label>
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Artist</span>
+    <input
+      style={getInputStyle(theme)}
+      value={artist}
+      onChange={(e) => setArtist(e.target.value)}
+    />
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Key</span>
-                  <select
-                    style={getInputStyle(theme)}
-                    value={songKey}
-                    onChange={(e) => setSongKey(e.target.value)}
-                  >
-                    {KEY_OPTIONS.map((key) => (
-                      <option key={key} value={key}>
-                        {key}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+  {/* Row 2 */}
+  <div
+    style={{
+      gridColumn: "1 / span 2",
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr",
+      gap: 12,
+    }}
+  >
+    <label style={{ ...labelBlockStyle, color: theme.text }}>
+      <span>Key</span>
+      <select
+        style={getInputStyle(theme)}
+        value={songKey}
+        onChange={(e) => setSongKey(e.target.value)}
+      >
+        {KEY_OPTIONS.map((key) => (
+          <option key={key} value={key}>
+            {key}
+          </option>
+        ))}
+      </select>
+    </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>BPM</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={bpm}
-                    onChange={(e) => setBpm(e.target.value)}
-                  />
-                </label>
+    <label style={{ ...labelBlockStyle, color: theme.text }}>
+      <span>BPM</span>
+      <input
+        style={getInputStyle(theme)}
+        value={bpm}
+        onChange={(e) => setBpm(e.target.value)}
+      />
+    </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Time Signature</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={timeSignature}
-                    onChange={(e) => setTimeSignature(e.target.value)}
-                  />
-                </label>
+    <label style={{ ...labelBlockStyle, color: theme.text }}>
+      <span>Time Signature</span>
+      <input
+        style={getInputStyle(theme)}
+        value={timeSignature}
+        onChange={(e) => setTimeSignature(e.target.value)}
+      />
+    </label>
+  </div>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Display Mode</span>
-                  <select
-                    style={getInputStyle(theme)}
-                    value={effectiveDisplayMode}
-                    onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
-                    disabled={songKey === "#"}
-                  >
-                    <option value="numbers">Numbers</option>
-                    <option value="letters">Letters</option>
-                  </select>
-                </label>
-              </div>
+  {/* Row 3 */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Chart Builder</span>
+    <input
+      style={getInputStyle(theme)}
+      value={chartBuilder}
+      onChange={(e) => setChartBuilder(e.target.value)}
+    />
+  </label>
+
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Display Mode</span>
+    <select
+      style={getInputStyle(theme)}
+      value={effectiveDisplayMode}
+      onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
+      disabled={songKey === "#"}
+    >
+      <option value="numbers">Numbers</option>
+      <option value="letters">Letters</option>
+    </select>
+  </label>
+</div>
 
               {songKey === "#" && (
                 <p style={{ ...helpTextStyle, marginTop: 12, color: theme.muted }}>
@@ -1595,9 +1722,26 @@ function loadSongIntoEditor(song: SongData) {
                 <button style={getPrimaryButtonStyle()} onClick={saveCurrentSongToLibrary}>
                   Save to Library
                 </button>
+                <button style={getSecondaryButtonStyle(theme)} onClick={saveSongToFile}>
+                  Save File
+                </button>
+                <button
+                  style={getSecondaryButtonStyle(theme)}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Load File
+                </button>
                 <button style={getSecondaryButtonStyle(theme)} onClick={createNewSong}>
                   New Song
                 </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".chordcanvas,.json"
+                  style={{ display: "none" }}
+                  onChange={handleLoadFile}
+                />
               </div>
 
               <input
@@ -1927,9 +2071,9 @@ function loadSongIntoEditor(song: SongData) {
                   >
                     +
                   </button>
-                 <button style={getSecondaryButtonStyleSmall(theme)} onClick={() => setPreviewScale(0.65)}>
-  Reset Zoom
-</button>
+                  <button style={getSecondaryButtonStyleSmall(theme)} onClick={() => setPreviewScale(0.65)}>
+                    Reset Zoom
+                  </button>
                 </div>
               </div>
 
@@ -2002,6 +2146,8 @@ function loadSongIntoEditor(song: SongData) {
                           <div style={{ marginTop: page.isFirstPage ? PAGE.firstPageExtraTopPx : 0 }}>
                             <PageSections page={page} songKey={songKey} effectiveDisplayMode={effectiveDisplayMode} />
                           </div>
+
+                          <FooterBlock chartBuilder={chartBuilder} />
                         </div>
                       </div>
                     ))}
@@ -2046,6 +2192,8 @@ function loadSongIntoEditor(song: SongData) {
                   printMode
                 />
               </div>
+
+              <FooterBlock chartBuilder={chartBuilder} />
             </div>
           </div>
         ))}
@@ -2183,6 +2331,7 @@ const previewPaperStyle: React.CSSProperties = {
   borderRadius: 12,
   boxSizing: "border-box",
   margin: "0",
+  position: "relative",
 };
 
 const printPaperStyle: React.CSSProperties = {
@@ -2194,6 +2343,7 @@ const printPaperStyle: React.CSSProperties = {
   minHeight: "auto",
   boxSizing: "border-box",
   margin: "0",
+  position: "relative",
 };
 
 const fieldGridStyle: React.CSSProperties = {
