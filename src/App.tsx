@@ -1528,8 +1528,8 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
   {/* NEW ROW: Key + Display Mode */}
   <label style={{ ...labelBlockStyle, color: theme.text }}>
     <span>Key</span>
-    <select
-      style={getInputStyle(theme)}
+<select
+  style={{ ...getInputStyle(theme), width: "100%" }}
       value={songKey}
       onChange={(e) => setSongKey(e.target.value)}
     >
@@ -1544,7 +1544,7 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
   <label style={{ ...labelBlockStyle, color: theme.text }}>
     <span>Display Mode</span>
     <select
-      style={getInputStyle(theme)}
+  style={{ ...getInputStyle(theme), width: "100%" }}
       value={effectiveDisplayMode}
       onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
       disabled={songKey === "#"}
@@ -2072,14 +2072,19 @@ function getPanelStyle(theme: ThemeTokens): React.CSSProperties {
 function getInputStyle(theme: ThemeTokens): React.CSSProperties {
   return {
     width: "100%",
+    height: 38,
     boxSizing: "border-box",
     padding: "10px 12px",
     borderRadius: 12,
     border: `1px solid ${theme.border}`,
     fontSize: 14,
+    lineHeight: "18px",
     color: theme.inputText,
     background: theme.inputBg,
     outline: "none",
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
   };
 }
 
