@@ -856,7 +856,7 @@ export default function App() {
   const [autosaveStatus, setAutosaveStatus] = useState("Not saved yet");
   const [songLibrary, setSongLibrary] = useState<LibrarySong[]>([]);
   const [libraryFilter, setLibraryFilter] = useState("");
-  const [previewScale, setPreviewScale] = useState(0.75);
+  const [previewScale, setPreviewScale] = useState(0.65);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
   const [dragOverSectionId, setDragOverSectionId] = useState<string | null>(null);
@@ -1465,6 +1465,7 @@ export default function App() {
               <div
   style={{
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
@@ -1476,7 +1477,7 @@ export default function App() {
     src={LOGO_FULL}
     alt="ChordCanvas logo"
     style={{
-      width: 500,
+      width: 460,
       maxWidth: "100%",
       height: "auto",
       display: "block",
@@ -1484,6 +1485,20 @@ export default function App() {
       background: "transparent",
     }}
   />
+
+  <p
+    style={{
+      margin: "10px 0 0 0",
+      fontSize: 18,
+      lineHeight: 1.2,
+      color: theme.muted,
+      letterSpacing: "0.01em",
+      fontWeight: 500,
+      textAlign: "center",
+    }}
+  >
+    Where Songs Take Shape
+  </p>
 </div>
 
               <div style={fieldGridStyle}>
@@ -1903,9 +1918,9 @@ export default function App() {
                   >
                     +
                   </button>
-                  <button style={getSecondaryButtonStyleSmall(theme)} onClick={() => setPreviewScale(0.75)}>
-                    Reset Zoom
-                  </button>
+                 <button style={getSecondaryButtonStyleSmall(theme)} onClick={() => setPreviewScale(0.65)}>
+  Reset Zoom
+</button>
                 </div>
               </div>
 
