@@ -29,11 +29,6 @@ type SongData = {
   sections: Section[];
 };
 
-type LibrarySong = SongData & {
-  libraryId: string;
-  savedAt: string;
-};
-
 type PrintPage = {
   left: Section[];
   right: Section[];
@@ -62,7 +57,6 @@ type ThemeTokens = {
 };
 
 const AUTOSAVE_KEY = "chord-chart-builder-autosave-v4";
-const LIBRARY_KEY = "chord-chart-builder-library-v3";
 const LOGO_FULL = "/chordcanvas-logo-dark.png";
 
 const PAGE = {
@@ -490,14 +484,6 @@ function splitRoadmap(text: string) {
     .filter(Boolean);
 }
 
-function formatSavedAt(iso: string) {
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
-}
-
 function getPageGeometry() {
   const pageWidthPx = PAGE.widthIn * PAGE.pxPerIn;
   const pageHeightPx = PAGE.heightIn * PAGE.pxPerIn;
@@ -891,8 +877,6 @@ export default function App() {
   const [roadmap, setRoadmap] = useState("");
   const [sections, setSections] = useState<Section[]>([]);
   const [autosaveStatus, setAutosaveStatus] = useState("Not saved yet");
-  const [songLibrary, setSongLibrary] = useState<LibrarySong[]>([]);
-  const [libraryFilter, setLibraryFilter] = useState("");
   const [previewScale, setPreviewScale] = useState(0.65);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
@@ -932,32 +916,6 @@ export default function App() {
   }, [isPrinting]);
 
   useEffect(() => {
-    try {
-      const rawLibrary = localStorage.getItem(LIBRARY_KEY);
-      if (rawLibrary) {
-        const parsedLibrary = JSON.parse(rawLibrary);
-        if (Array.isArray(parsedLibrary)) {
-          setSongLibrary(
-            parsedLibrary.map((song) => ({
-              libraryId: song.libraryId || makeId(),
-              title: song.title || "Untitled Song",
-              artist: song.artist || "",
-              key: song.key || "#",
-              bpm: song.bpm || "",
-              timeSignature: song.timeSignature || "4/4",
-              chartBuilder: song.chartBuilder || "",
-              displayMode: song.displayMode || "numbers",
-              roadmap: song.roadmap || "",
-              sections: normalizeSections(song.sections),
-              savedAt: song.savedAt || new Date().toISOString(),
-            })),
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load song library:", error);
-    }
-
     try {
       const saved = localStorage.getItem(AUTOSAVE_KEY);
       if (saved) {
@@ -1016,14 +974,6 @@ export default function App() {
       setAutosaveStatus("Autosave failed");
     }
   }, [title, artist, songKey, bpm, timeSignature, chartBuilder, effectiveDisplayMode, roadmap, sections]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LIBRARY_KEY, JSON.stringify(songLibrary));
-    } catch (error) {
-      console.error("Failed to save song library:", error);
-    }
-  }, [songLibrary]);
 
   useEffect(() => {
     function handleWheel(event: WheelEvent) {
@@ -1120,16 +1070,6 @@ export default function App() {
 
   const scaledPaperWidth = Math.ceil(geom.pageWidthPx * previewScale);
   const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
-
-  const filteredLibrary = useMemo(() => {
-    const q = libraryFilter.trim().toLowerCase();
-    if (!q) return songLibrary;
-
-    return songLibrary.filter((song) => {
-      const haystack = `${song.title} ${song.artist} ${song.key}`.toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [songLibrary, libraryFilter]);
 
   function getCurrentSongData(): SongData {
     return {
@@ -1262,47 +1202,6 @@ export default function App() {
       sections: [],
     };
     loadSongIntoEditor(blank);
-  }
-
-  function saveCurrentSongToLibrary() {
-    const current = getCurrentSongData();
-    const savedSong: LibrarySong = {
-      libraryId: makeId(),
-      savedAt: new Date().toISOString(),
-      ...current,
-      sections: current.sections.map((section) => ({ ...section, id: makeId() })),
-    };
-
-    setSongLibrary((currentLibrary) => [savedSong, ...currentLibrary]);
-    setAutosaveStatus("Saved current song to library");
-  }
-
-  function loadLibrarySong(libraryId: string) {
-    const song = songLibrary.find((item) => item.libraryId === libraryId);
-    if (!song) return;
-    loadSongIntoEditor(song);
-  }
-
-  function duplicateLibrarySong(libraryId: string) {
-    const song = songLibrary.find((item) => item.libraryId === libraryId);
-    if (!song) return;
-
-    const duplicate: LibrarySong = {
-      ...song,
-      libraryId: makeId(),
-      title: `${song.title} Copy`,
-      savedAt: new Date().toISOString(),
-      sections: song.sections.map((section) => ({ ...section, id: makeId() })),
-    };
-
-    setSongLibrary((currentLibrary) => [duplicate, ...currentLibrary]);
-  }
-
-  function deleteLibrarySong(libraryId: string) {
-    const confirmed = window.confirm("Are you sure you want to delete this song from the library?");
-    if (!confirmed) return;
-
-    setSongLibrary((currentLibrary) => currentLibrary.filter((song) => song.libraryId !== libraryId));
   }
 
   function saveSongToFile() {
@@ -1475,10 +1374,6 @@ export default function App() {
             box-shadow: none !important;
           }
 
-          .print-line-dom {
-            position: relative !important;
-          }
-
           .print-line-dom span {
             print-color-adjust: exact !important;
             -webkit-print-color-adjust: exact !important;
@@ -1617,91 +1512,88 @@ export default function App() {
               </div>
 
               <div style={fieldGridStyle}>
-  {/* Row 1 */}
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Song Title</span>
-    <input
-      style={getInputStyle(theme)}
-      value={title}
-      onChange={(e) => setTitle(e.target.value)}
-    />
-  </label>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Song Title</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </label>
 
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Artist</span>
-    <input
-      style={getInputStyle(theme)}
-      value={artist}
-      onChange={(e) => setArtist(e.target.value)}
-    />
-  </label>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Artist</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={artist}
+                    onChange={(e) => setArtist(e.target.value)}
+                  />
+                </label>
 
-  {/* Row 2 (NEW ORDER) */}
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Chart Builder</span>
-    <input
-      style={getInputStyle(theme)}
-      value={chartBuilder}
-      onChange={(e) => setChartBuilder(e.target.value)}
-    />
-  </label>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Chart Builder</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={chartBuilder}
+                    onChange={(e) => setChartBuilder(e.target.value)}
+                  />
+                </label>
 
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Display Mode</span>
-    <select
-      style={getInputStyle(theme)}
-      value={effectiveDisplayMode}
-      onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
-      disabled={songKey === "#"}
-    >
-      <option value="numbers">Numbers</option>
-      <option value="letters">Letters</option>
-    </select>
-  </label>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Display Mode</span>
+                  <select
+                    style={getInputStyle(theme)}
+                    value={effectiveDisplayMode}
+                    onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
+                    disabled={songKey === "#"}
+                  >
+                    <option value="numbers">Numbers</option>
+                    <option value="letters">Letters</option>
+                  </select>
+                </label>
 
-  {/* Row 3 */}
-  <div
-    style={{
-      gridColumn: "1 / span 2",
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr 1fr",
-      gap: 12,
-    }}
-  >
-    <label style={{ ...labelBlockStyle, color: theme.text }}>
-      <span>Key</span>
-      <select
-        style={getInputStyle(theme)}
-        value={songKey}
-        onChange={(e) => setSongKey(e.target.value)}
-      >
-        {KEY_OPTIONS.map((key) => (
-          <option key={key} value={key}>
-            {key}
-          </option>
-        ))}
-      </select>
-    </label>
+                <div
+                  style={{
+                    gridColumn: "1 / span 2",
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: 12,
+                  }}
+                >
+                  <label style={{ ...labelBlockStyle, color: theme.text }}>
+                    <span>Key</span>
+                    <select
+                      style={getInputStyle(theme)}
+                      value={songKey}
+                      onChange={(e) => setSongKey(e.target.value)}
+                    >
+                      {KEY_OPTIONS.map((key) => (
+                        <option key={key} value={key}>
+                          {key}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-    <label style={{ ...labelBlockStyle, color: theme.text }}>
-      <span>BPM</span>
-      <input
-        style={getInputStyle(theme)}
-        value={bpm}
-        onChange={(e) => setBpm(e.target.value)}
-      />
-    </label>
+                  <label style={{ ...labelBlockStyle, color: theme.text }}>
+                    <span>BPM</span>
+                    <input
+                      style={getInputStyle(theme)}
+                      value={bpm}
+                      onChange={(e) => setBpm(e.target.value)}
+                    />
+                  </label>
 
-    <label style={{ ...labelBlockStyle, color: theme.text }}>
-      <span>Time Signature</span>
-      <input
-        style={getInputStyle(theme)}
-        value={timeSignature}
-        onChange={(e) => setTimeSignature(e.target.value)}
-      />
-    </label>
-  </div>
-</div>
+                  <label style={{ ...labelBlockStyle, color: theme.text }}>
+                    <span>Time Signature</span>
+                    <input
+                      style={getInputStyle(theme)}
+                      value={timeSignature}
+                      onChange={(e) => setTimeSignature(e.target.value)}
+                    />
+                  </label>
+                </div>
+              </div>
 
               {songKey === "#" && (
                 <p style={{ ...helpTextStyle, marginTop: 12, color: theme.muted }}>
@@ -1712,25 +1604,19 @@ export default function App() {
               <div style={{ marginTop: 14, fontSize: 13, color: theme.muted, fontWeight: 600 }}>
                 {autosaveStatus}
               </div>
-            </div>
 
-            <div style={getPanelStyle(theme)}>
-              <div style={panelAccentLineStyle} />
-              <h2 style={{ ...sectionHeadingStyle, color: theme.text }}>Song Library</h2>
+              <div style={toolbarStyle(theme)}>
+                <button style={getPrimaryButtonStyle()} onClick={saveSongToFile}>
+                  Save Song
+                </button>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                <button style={getPrimaryButtonStyle()} onClick={saveCurrentSongToLibrary}>
-                  Save to Library
-                </button>
-                <button style={getSecondaryButtonStyle(theme)} onClick={saveSongToFile}>
-                  Save File
-                </button>
                 <button
                   style={getSecondaryButtonStyle(theme)}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Load File
+                  Load Song
                 </button>
+
                 <button style={getSecondaryButtonStyle(theme)} onClick={createNewSong}>
                   New Song
                 </button>
@@ -1743,47 +1629,6 @@ export default function App() {
                   onChange={handleLoadFile}
                 />
               </div>
-
-              <input
-                style={getInputStyle(theme)}
-                value={libraryFilter}
-                onChange={(e) => setLibraryFilter(e.target.value)}
-                placeholder="Search library..."
-              />
-
-              <div style={{ display: "grid", gap: 10, marginTop: 14, maxHeight: 320, overflowY: "auto" }}>
-                {filteredLibrary.length === 0 && (
-                  <div style={{ color: theme.muted, fontSize: 14 }}>
-                    Your canvas library is empty. Start shaping your first song.
-                  </div>
-                )}
-
-                {filteredLibrary.map((song) => (
-                  <div key={song.libraryId} style={getLibraryCardStyle(theme)}>
-                    <div>
-                      <div style={{ fontWeight: 700, color: theme.text }}>{song.title}</div>
-                      <div style={{ fontSize: 13, color: theme.muted }}>
-                        {song.artist || "No artist"} • Key {song.key} • Saved {formatSavedAt(song.savedAt)}
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                      <button style={getSecondaryButtonStyleSmall(theme)} onClick={() => loadLibrarySong(song.libraryId)}>
-                        Load
-                      </button>
-                      <button
-                        style={getSecondaryButtonStyleSmall(theme)}
-                        onClick={() => duplicateLibrarySong(song.libraryId)}
-                      >
-                        Duplicate
-                      </button>
-                      <button style={getDangerButtonStyleSmall()} onClick={() => deleteLibrarySong(song.libraryId)}>
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <div style={getPanelStyle(theme)}>
@@ -1794,7 +1639,9 @@ export default function App() {
                 value={roadmap}
                 onChange={(e) => setRoadmap(e.target.value)}
               />
-              <p style={{ ...helpTextStyle, color: theme.muted }}>Example: INTRO V1 CH TURN V1 CHx2 INST BR BR2 CHx2</p>
+              <p style={{ ...helpTextStyle, color: theme.muted }}>
+                Example: INTRO V1 CH TURN V1 CHx2 INST BR BR2 CHx2
+              </p>
             </div>
 
             <div style={getPanelStyle(theme)}>
@@ -2144,7 +1991,11 @@ export default function App() {
                           )}
 
                           <div style={{ marginTop: page.isFirstPage ? PAGE.firstPageExtraTopPx : 0 }}>
-                            <PageSections page={page} songKey={songKey} effectiveDisplayMode={effectiveDisplayMode} />
+                            <PageSections
+                              page={page}
+                              songKey={songKey}
+                              effectiveDisplayMode={effectiveDisplayMode}
+                            />
                           </div>
 
                           <FooterBlock chartBuilder={chartBuilder} />
@@ -2157,7 +2008,7 @@ export default function App() {
             </div>
           </div>
         </div>
-      </div>
+      </div> 
 
       <div className="print-root" style={{ display: "none" }}>
         {documentPages.map((page, pageIndex) => (
@@ -2315,13 +2166,17 @@ function getEditorCardStyle(theme: ThemeTokens): React.CSSProperties {
   };
 }
 
-function getLibraryCardStyle(theme: ThemeTokens): React.CSSProperties {
+function toolbarStyle(theme: ThemeTokens): React.CSSProperties {
   return {
-    border: `1px solid ${theme.border}`,
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    marginTop: 16,
+    padding: 10,
     borderRadius: 14,
-    padding: 12,
-    background: theme.panelSoft,
-    boxShadow: theme.cardShadow,
+    background: "#151515",
+    border: `1px solid ${theme.border}`,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02)",
   };
 }
 
