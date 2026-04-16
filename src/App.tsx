@@ -1606,29 +1606,35 @@ export default function App() {
               </div>
 
               <div style={toolbarStyle(theme)}>
-                <button style={getPrimaryButtonStyle()} onClick={saveSongToFile}>
-                  Save Song
-                </button>
+  <button
+    style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
+    onClick={createNewSong}
+  >
+    New Song
+  </button>
 
-                <button
-                  style={getSecondaryButtonStyle(theme)}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Load Song
-                </button>
+  <button
+    style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
+    onClick={() => fileInputRef.current?.click()}
+  >
+    Load Song
+  </button>
 
-                <button style={getSecondaryButtonStyle(theme)} onClick={createNewSong}>
-                  New Song
-                </button>
+  <button
+    style={{ ...getPrimaryButtonStyle(), flex: 1 }}
+    onClick={saveSongToFile}
+  >
+    Save Song
+  </button>
 
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".chordcanvas,.json"
-                  style={{ display: "none" }}
-                  onChange={handleLoadFile}
-                />
-              </div>
+  <input
+    ref={fileInputRef}
+    type="file"
+    accept=".chordcanvas,.json"
+    style={{ display: "none" }}
+    onChange={handleLoadFile}
+  />
+</div>
             </div>
 
             <div style={getPanelStyle(theme)}>
@@ -2170,13 +2176,14 @@ function toolbarStyle(theme: ThemeTokens): React.CSSProperties {
   return {
     display: "flex",
     gap: 8,
-    flexWrap: "wrap",
     marginTop: 16,
     padding: 10,
     borderRadius: 14,
     background: "#151515",
     border: `1px solid ${theme.border}`,
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02)",
+    width: "100%",
+    boxSizing: "border-box",
   };
 }
 
