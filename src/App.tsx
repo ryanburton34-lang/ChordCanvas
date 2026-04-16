@@ -922,18 +922,23 @@ export default function App() {
     try {
       const saved = localStorage.getItem(AUTOSAVE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as SongData;
-        setTitle(parsed.title ?? "");
-        setArtist(parsed.artist ?? "");
-        setSongKey(parsed.key ?? "#");
-        setBpm(parsed.bpm ?? "");
-        setTimeSignature(parsed.timeSignature ?? "");
-        setDisplayMode(parsed.displayMode ?? "numbers");
-        setRoadmap(parsed.roadmap ?? "");
-        setSections(normalizeSections(parsed.sections));
-        setAutosaveStatus("Loaded autosaved chart");
-        return;
-      }
+  const parsed = JSON.parse(saved) as SongData;
+  const normalizedSections = normalizeSections(parsed.sections);
+
+  setTitle(parsed.title ?? "");
+  setArtist(parsed.artist ?? "");
+  setSongKey(parsed.key ?? "#");
+  setBpm(parsed.bpm ?? "");
+  setTimeSignature(parsed.timeSignature ?? "");
+  setDisplayMode(parsed.displayMode ?? "numbers");
+  setRoadmap(parsed.roadmap ?? "");
+  setSections(normalizedSections);
+  setCollapsedSections(
+    Object.fromEntries(normalizedSections.map((section) => [section.id, true]))
+  );
+  setAutosaveStatus("Loaded autosaved chart");
+  return;
+}
     } catch (error) {
       console.error("Failed to load autosave:", error);
     }
@@ -1091,18 +1096,22 @@ export default function App() {
     };
   }
 
-  function loadSongIntoEditor(song: SongData) {
-    setTitle(song.title ?? "");
-    setArtist(song.artist ?? "");
-    setSongKey(song.key ?? "#");
-    setBpm(song.bpm ?? "");
-    setTimeSignature(song.timeSignature ?? "");
-    setDisplayMode(song.displayMode ?? "numbers");
-    setRoadmap(song.roadmap ?? "");
-    setSections(normalizeSections(song.sections));
-    setCollapsedSections({});
-    setAutosaveStatus("Loaded song into editor");
-  }
+function loadSongIntoEditor(song: SongData) {
+  const normalizedSections = normalizeSections(song.sections);
+
+  setTitle(song.title ?? "");
+  setArtist(song.artist ?? "");
+  setSongKey(song.key ?? "#");
+  setBpm(song.bpm ?? "");
+  setTimeSignature(song.timeSignature ?? "");
+  setDisplayMode(song.displayMode ?? "numbers");
+  setRoadmap(song.roadmap ?? "");
+  setSections(normalizedSections);
+  setCollapsedSections(
+    Object.fromEntries(normalizedSections.map((section) => [section.id, true]))
+  );
+  setAutosaveStatus("Loaded song into editor");
+}
 
   function updateSection(id: string, field: keyof Section, value: string) {
     setSections((current) =>
@@ -1113,7 +1122,7 @@ export default function App() {
   function addSection() {
     const newSection = getTemplateSection("VERSE");
     setSections((current) => [...current, newSection]);
-    setCollapsedSections((current) => ({ ...current, [newSection.id]: false }));
+    setCollapsedSections((current) => ({ ...current, [newSection.id]: true }));
     setFocusSectionTitleId(newSection.id);
   }
 
