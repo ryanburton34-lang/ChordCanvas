@@ -41,8 +41,28 @@ type PrintPage = {
 
 type DragInsertPosition = "before" | "after" | null;
 
+type ThemeTokens = {
+  background: string;
+  backgroundGlowA: string;
+  backgroundGlowB: string;
+  panel: string;
+  panelSoft: string;
+  panelMuted: string;
+  text: string;
+  muted: string;
+  border: string;
+  inputBg: string;
+  inputText: string;
+  inputPlaceholder: string;
+  shadow: string;
+  cardShadow: string;
+  toolbarBg: string;
+  toggleBg: string;
+};
+
 const AUTOSAVE_KEY = "chord-chart-builder-autosave-v4";
 const LIBRARY_KEY = "chord-chart-builder-library-v3";
+const DARK_MODE_KEY = "chordcanvas-dark-mode";
 
 const PAGE = {
   widthIn: 8.5,
@@ -62,17 +82,52 @@ const PAGINATION = {
 const BRAND = {
   name: "ChordCanvas",
   tagline: "Where Songs Take Shape",
-  primary: "#053A63",
-  background: "#F4FAFD",
-  text: "#111827",
-  muted: "#5B6B79",
-  border: "#CFE4EF",
+  primary: "#60A5FA",
+  primaryDeep: "#3B82F6",
+  accentRed: "#f25f5c",
   chip: "#E8F6FD",
-  panel: "#FFFFFF",
-  panelSoft: "#FBFDFF",
   dangerBg: "#FFF1F2",
   dangerBorder: "#FECACA",
   dangerText: "#B91C1C",
+};
+
+const THEMES: Record<"light" | "dark", ThemeTokens> = {
+  light: {
+    background: "#F4FAFD",
+    backgroundGlowA: "rgba(102,217,255,0.08)",
+    backgroundGlowB: "rgba(242,180,131,0.07)",
+    panel: "#FFFFFF",
+    panelSoft: "#FBFDFF",
+    panelMuted: "#F8FBFD",
+    text: "#111827",
+    muted: "#5B6B79",
+    border: "#CFE4EF",
+    inputBg: "#FFFFFF",
+    inputText: "#000000",
+    inputPlaceholder: "#94A3B8",
+    shadow: "0 6px 20px rgba(3, 43, 74, 0.08)",
+    cardShadow: "0 2px 8px rgba(3, 43, 74, 0.03)",
+    toolbarBg: "#FFFFFF",
+    toggleBg: "#FFFFFF",
+  },
+  dark: {
+    background: "#121212",
+    backgroundGlowA: "rgba(255,255,255,0.03)",
+    backgroundGlowB: "rgba(255,255,255,0.02)",
+    panel: "#1A1A1A",
+    panelSoft: "#222222",
+    panelMuted: "#181818",
+    text: "#F3F4F6",
+    muted: "#A1A1AA",
+    border: "#343434",
+    inputBg: "#18181B",
+    inputText: "#F8FAFC",
+    inputPlaceholder: "#71717A",
+    shadow: "0 14px 36px rgba(0, 0, 0, 0.45)",
+    cardShadow: "0 8px 20px rgba(0, 0, 0, 0.28)",
+    toolbarBg: "#1A1A1A",
+    toggleBg: "#27272A",
+  },
 };
 
 const KEY_OPTIONS = ["#", "A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab"];
@@ -296,7 +351,7 @@ function renderAngleMarkers(text: string) {
       <span
         key={index}
         style={{
-          color: "#f25f5c",
+          color: BRAND.accentRed,
           fontWeight: 700,
         }}
       >
@@ -333,6 +388,20 @@ function renderBarLine(line: string, key: string, displayMode: DisplayMode, comp
       }}
     >
       {parts.map((part, index) => {
+        if (part === "<>") {
+          return (
+            <span
+              key={index}
+              style={{
+                color: BRAND.accentRed,
+                fontWeight: 700,
+              }}
+            >
+              {"<>"}
+            </span>
+          );
+        }
+
         const chordMatch = part.match(/^\[([^\]]+)\]$/);
         if (chordMatch) {
           const token = chordMatch[1].trim();
@@ -346,21 +415,7 @@ function renderBarLine(line: string, key: string, displayMode: DisplayMode, comp
           );
         }
 
-       if (part === "<>") {
-  return (
-    <span
-      key={index}
-      style={{
-        color: "#f25f5c",
-        fontWeight: 700,
-      }}
-    >
-      {"<>"}
-    </span>
-  );
-}
-
-return <span key={index}>{renderAngleMarkers(part)}</span>;
+        return <span key={index}>{renderAngleMarkers(part)}</span>;
       })}
     </span>
   );
@@ -430,7 +485,7 @@ function renderInlineLine(line: string, key: string, displayMode: DisplayMode, c
                     style={{
                       fontSize: compact ? 11 : 14,
                       fontWeight: 700,
-                      color: "#f25f5c",
+                      color: BRAND.accentRed,
                       fontStyle: "italic",
                     }}
                   >
@@ -633,7 +688,7 @@ function HeaderBlock({
           <div
             style={{
               marginTop: 8,
-              color: BRAND.muted,
+              color: "#5B6B79",
               fontSize: 14,
               textAlign: "left",
             }}
@@ -720,7 +775,7 @@ function SectionCard({
           {section.note && (
             <>
               <span style={{ color: "#111827", fontWeight: 700 }}> - </span>
-              <span style={{ color: "#f25f5c", fontWeight: 700 }}>{section.note}</span>
+              <span style={{ color: BRAND.accentRed, fontWeight: 700 }}>{section.note}</span>
             </>
           )}
         </div>
@@ -829,6 +884,7 @@ export default function App() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number>(PAGINATION.headerFallbackHeightPx);
   const [measuredSectionHeights, setMeasuredSectionHeights] = useState<Record<string, number>>({});
+  const [darkMode, setDarkMode] = useState(false);
 
   const editorColumnRef = useRef<HTMLDivElement | null>(null);
   const sectionTitleInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -838,6 +894,7 @@ export default function App() {
   const effectiveDisplayMode: DisplayMode = songKey === "#" ? "numbers" : displayMode;
   const geom = useMemo(() => getPageGeometry(), []);
   const roadmapItems = useMemo(() => splitRoadmap(roadmap), [roadmap]);
+  const theme = darkMode ? THEMES.dark : THEMES.light;
 
   useEffect(() => {
     const fontHref = "https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap";
@@ -863,6 +920,25 @@ export default function App() {
       document.head.appendChild(link);
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const savedDarkMode = localStorage.getItem(DARK_MODE_KEY);
+      if (savedDarkMode !== null) {
+        setDarkMode(savedDarkMode === "true");
+      }
+    } catch (error) {
+      console.error("Failed to load dark mode preference:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DARK_MODE_KEY, String(darkMode));
+    } catch (error) {
+      console.error("Failed to save dark mode preference:", error);
+    }
+  }, [darkMode]);
 
   useEffect(() => {
     function handleAfterPrint() {
@@ -1105,34 +1181,34 @@ export default function App() {
     setFocusSectionTitleId(newSection.id);
   }
 
- function duplicateSection(id: string) {
-  const section = sections.find((item) => item.id === id);
-  if (!section) return;
+  function duplicateSection(id: string) {
+    const section = sections.find((item) => item.id === id);
+    if (!section) return;
 
-  const duplicated = {
-    ...section,
-    id: makeId(),
-  };
+    const duplicated = {
+      ...section,
+      id: makeId(),
+    };
 
-  setSections((current) => [...current, duplicated]);
-  setCollapsedSections((current) => ({
-    ...current,
-    [duplicated.id]: true,
-  }));
-  setFocusSectionTitleId(null);
-}
+    setSections((current) => [...current, duplicated]);
+    setCollapsedSections((current) => ({
+      ...current,
+      [duplicated.id]: true,
+    }));
+    setFocusSectionTitleId(null);
+  }
 
-function removeSection(id: string) {
-  const confirmed = window.confirm("Are you sure you want to delete this block?");
-  if (!confirmed) return;
+  function removeSection(id: string) {
+    const confirmed = window.confirm("Are you sure you want to delete this block?");
+    if (!confirmed) return;
 
-  setSections((current) => current.filter((section) => section.id !== id));
-  setCollapsedSections((current) => {
-    const copy = { ...current };
-    delete copy[id];
-    return copy;
-  });
-}
+    setSections((current) => current.filter((section) => section.id !== id));
+    setCollapsedSections((current) => {
+      const copy = { ...current };
+      delete copy[id];
+      return copy;
+    });
+  }
 
   function toggleSectionCollapsed(id: string) {
     setCollapsedSections((current) => ({
@@ -1227,11 +1303,11 @@ function removeSection(id: string) {
   }
 
   function deleteLibrarySong(libraryId: string) {
-  const confirmed = window.confirm("Are you sure you want to delete this song from the library?");
-  if (!confirmed) return;
+    const confirmed = window.confirm("Are you sure you want to delete this song from the library?");
+    if (!confirmed) return;
 
-  setSongLibrary((currentLibrary) => currentLibrary.filter((song) => song.libraryId !== libraryId));
-}
+    setSongLibrary((currentLibrary) => currentLibrary.filter((song) => song.libraryId !== libraryId));
+  }
 
   function handlePrint() {
     setIsPrinting(true);
@@ -1243,11 +1319,12 @@ function removeSection(id: string) {
       style={{
         height: "100vh",
         overflow: "hidden",
-        background: BRAND.background,
-        color: BRAND.text,
+        background: theme.background,
+        color: theme.text,
         fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif',
         padding: 24,
         boxSizing: "border-box",
+        transition: "background 180ms ease, color 180ms ease",
       }}
     >
       <style>{`
@@ -1447,8 +1524,24 @@ function removeSection(id: string) {
               }
             }}
           >
-            <div style={{ ...panelStyle, paddingTop: 12 }}>
+            <div style={{ ...getPanelStyle(theme), paddingTop: 12 }}>
               <div style={panelAccentLineStyle} />
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginBottom: 12,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setDarkMode((current) => !current)}
+                  style={getThemeToggleStyle(theme)}
+                >
+                  {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
+                </button>
+              </div>
 
               <div
                 style={{
@@ -1486,7 +1579,7 @@ function removeSection(id: string) {
                       fontSize: 36,
                       lineHeight: 1,
                       letterSpacing: "-0.02em",
-                      color: "#171933",
+                      color: theme.text,
                       fontFamily:
                         '"Fredoka", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif',
                       fontWeight: 600,
@@ -1500,7 +1593,7 @@ function removeSection(id: string) {
                       margin: 0,
                       fontSize: 18,
                       lineHeight: 1.2,
-                      color: "#72758A",
+                      color: theme.muted,
                       letterSpacing: "0.01em",
                     }}
                   >
@@ -1510,19 +1603,31 @@ function removeSection(id: string) {
               </div>
 
               <div style={fieldGridStyle}>
-                <label style={labelBlockStyle}>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
                   <span>Song Title</span>
-                  <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} />
+                  <input
+                    style={getInputStyle(theme)}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
                 </label>
 
-                <label style={labelBlockStyle}>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
                   <span>Artist</span>
-                  <input style={inputStyle} value={artist} onChange={(e) => setArtist(e.target.value)} />
+                  <input
+                    style={getInputStyle(theme)}
+                    value={artist}
+                    onChange={(e) => setArtist(e.target.value)}
+                  />
                 </label>
 
-                <label style={labelBlockStyle}>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
                   <span>Key</span>
-                  <select style={inputStyle} value={songKey} onChange={(e) => setSongKey(e.target.value)}>
+                  <select
+                    style={getInputStyle(theme)}
+                    value={songKey}
+                    onChange={(e) => setSongKey(e.target.value)}
+                  >
                     {KEY_OPTIONS.map((key) => (
                       <option key={key} value={key}>
                         {key}
@@ -1531,20 +1636,28 @@ function removeSection(id: string) {
                   </select>
                 </label>
 
-                <label style={labelBlockStyle}>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
                   <span>BPM</span>
-                  <input style={inputStyle} value={bpm} onChange={(e) => setBpm(e.target.value)} />
+                  <input
+                    style={getInputStyle(theme)}
+                    value={bpm}
+                    onChange={(e) => setBpm(e.target.value)}
+                  />
                 </label>
 
-                <label style={labelBlockStyle}>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
                   <span>Time Signature</span>
-                  <input style={inputStyle} value={timeSignature} onChange={(e) => setTimeSignature(e.target.value)} />
+                  <input
+                    style={getInputStyle(theme)}
+                    value={timeSignature}
+                    onChange={(e) => setTimeSignature(e.target.value)}
+                  />
                 </label>
 
-                <label style={labelBlockStyle}>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
                   <span>Display Mode</span>
                   <select
-                    style={inputStyle}
+                    style={getInputStyle(theme)}
                     value={effectiveDisplayMode}
                     onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
                     disabled={songKey === "#"}
@@ -1556,31 +1669,31 @@ function removeSection(id: string) {
               </div>
 
               {songKey === "#" && (
-                <p style={{ ...helpTextStyle, marginTop: 12 }}>
+                <p style={{ ...helpTextStyle, marginTop: 12, color: theme.muted }}>
                   “#” key mode shows Nashville Numbers only.
                 </p>
               )}
 
-              <div style={{ marginTop: 14, fontSize: 13, color: BRAND.muted, fontWeight: 600 }}>
+              <div style={{ marginTop: 14, fontSize: 13, color: theme.muted, fontWeight: 600 }}>
                 {autosaveStatus}
               </div>
             </div>
 
-            <div style={panelStyle}>
+            <div style={getPanelStyle(theme)}>
               <div style={panelAccentLineStyle} />
-              <h2 style={sectionHeadingStyle}>Song Library</h2>
+              <h2 style={{ ...sectionHeadingStyle, color: theme.text }}>Song Library</h2>
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                <button style={primaryButtonStyle} onClick={saveCurrentSongToLibrary}>
+                <button style={getPrimaryButtonStyle()} onClick={saveCurrentSongToLibrary}>
                   Save to Library
                 </button>
-                <button style={secondaryButtonStyle} onClick={createNewSong}>
+                <button style={getSecondaryButtonStyle(theme)} onClick={createNewSong}>
                   New Song
                 </button>
               </div>
 
               <input
-                style={inputStyle}
+                style={getInputStyle(theme)}
                 value={libraryFilter}
                 onChange={(e) => setLibraryFilter(e.target.value)}
                 placeholder="Search library..."
@@ -1588,28 +1701,31 @@ function removeSection(id: string) {
 
               <div style={{ display: "grid", gap: 10, marginTop: 14, maxHeight: 320, overflowY: "auto" }}>
                 {filteredLibrary.length === 0 && (
-                  <div style={{ color: BRAND.muted, fontSize: 14 }}>
+                  <div style={{ color: theme.muted, fontSize: 14 }}>
                     Your canvas library is empty. Start shaping your first song.
                   </div>
                 )}
 
                 {filteredLibrary.map((song) => (
-                  <div key={song.libraryId} style={libraryCardStyle}>
+                  <div key={song.libraryId} style={getLibraryCardStyle(theme)}>
                     <div>
-                      <div style={{ fontWeight: 700 }}>{song.title}</div>
-                      <div style={{ fontSize: 13, color: BRAND.muted }}>
+                      <div style={{ fontWeight: 700, color: theme.text }}>{song.title}</div>
+                      <div style={{ fontSize: 13, color: theme.muted }}>
                         {song.artist || "No artist"} • Key {song.key} • Saved {formatSavedAt(song.savedAt)}
                       </div>
                     </div>
 
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                      <button style={secondaryButtonStyleSmall} onClick={() => loadLibrarySong(song.libraryId)}>
+                      <button style={getSecondaryButtonStyleSmall(theme)} onClick={() => loadLibrarySong(song.libraryId)}>
                         Load
                       </button>
-                      <button style={secondaryButtonStyleSmall} onClick={() => duplicateLibrarySong(song.libraryId)}>
+                      <button
+                        style={getSecondaryButtonStyleSmall(theme)}
+                        onClick={() => duplicateLibrarySong(song.libraryId)}
+                      >
                         Duplicate
                       </button>
-                      <button style={dangerButtonStyleSmall} onClick={() => deleteLibrarySong(song.libraryId)}>
+                      <button style={getDangerButtonStyleSmall()} onClick={() => deleteLibrarySong(song.libraryId)}>
                         Delete
                       </button>
                     </div>
@@ -1618,21 +1734,21 @@ function removeSection(id: string) {
               </div>
             </div>
 
-            <div style={panelStyle}>
+            <div style={getPanelStyle(theme)}>
               <div style={panelAccentLineStyle} />
-              <h2 style={sectionHeadingStyle}>Song Flow</h2>
+              <h2 style={{ ...sectionHeadingStyle, color: theme.text }}>Song Flow</h2>
               <textarea
-                style={{ ...textareaStyle, minHeight: 80 }}
+                style={{ ...getTextareaStyle(theme), minHeight: 80 }}
                 value={roadmap}
                 onChange={(e) => setRoadmap(e.target.value)}
               />
-              <p style={helpTextStyle}>Example: INTRO V1 CH TURN V1 CHx2 INST BR BR2 CHx2</p>
+              <p style={{ ...helpTextStyle, color: theme.muted }}>Example: INTRO V1 CH TURN V1 CHx2 INST BR BR2 CHx2</p>
             </div>
 
-            <div style={panelStyle}>
+            <div style={getPanelStyle(theme)}>
               <div style={panelAccentLineStyle} />
-              <h2 style={sectionHeadingStyle}>Song Blocks</h2>
-              <p style={{ ...helpTextStyle, marginTop: 0, marginBottom: 12 }}>
+              <h2 style={{ ...sectionHeadingStyle, color: theme.text }}>Song Blocks</h2>
+              <p style={{ ...helpTextStyle, marginTop: 0, marginBottom: 12, color: theme.muted }}>
                 Drag and drop blocks to reorder them.
               </p>
 
@@ -1687,135 +1803,133 @@ function removeSection(id: string) {
 
                       <div
                         style={{
-                          ...editorCardStyle,
+                          ...getEditorCardStyle(theme),
                           opacity: isDragging ? 0.6 : 1,
-                          borderColor: dragOverSectionId === section.id ? BRAND.primary : BRAND.border,
+                          borderColor: dragOverSectionId === section.id ? BRAND.primary : theme.border,
                           boxShadow:
                             dragOverSectionId === section.id
-                              ? `0 0 0 2px rgba(5,58,99,0.10), 0 6px 18px rgba(5,58,99,0.08)`
-                              : "0 2px 8px rgba(3, 43, 74, 0.03)",
+                              ? `0 0 0 2px rgba(5,58,99,0.10), 0 6px 18px rgba(5,58,99,0.12)`
+                              : theme.cardShadow,
                           transition:
                             "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, opacity 180ms ease",
                         }}
                       >
                         <div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  }}
->
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      minWidth: 0,
-    }}
-  >
-    <span
-      draggable
-      onDragStart={(e) => {
-        setDraggingSectionId(section.id);
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", section.id);
-      }}
-      onDragEnd={() => {
-        setDraggingSectionId(null);
-        setDragOverSectionId(null);
-        setDragInsertPosition(null);
-      }}
-      style={{
-        fontSize: 16,
-        color: BRAND.muted,
-        userSelect: "none",
-        cursor: "grab",
-        padding: "2px 4px",
-        borderRadius: 6,
-      }}
-      title="Drag to reorder"
-    >
-      ⋮⋮
-    </span>
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 10,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              minWidth: 0,
+                            }}
+                          >
+                            <span
+                              draggable
+                              onDragStart={(e) => {
+                                setDraggingSectionId(section.id);
+                                e.dataTransfer.effectAllowed = "move";
+                                e.dataTransfer.setData("text/plain", section.id);
+                              }}
+                              onDragEnd={() => {
+                                setDraggingSectionId(null);
+                                setDragOverSectionId(null);
+                                setDragInsertPosition(null);
+                              }}
+                              style={{
+                                fontSize: 16,
+                                color: theme.muted,
+                                userSelect: "none",
+                                cursor: "grab",
+                                padding: "2px 4px",
+                                borderRadius: 6,
+                              }}
+                              title="Drag to reorder"
+                            >
+                              ⋮⋮
+                            </span>
 
-    <div
-      style={{
-        fontWeight: 700,
-        fontSize: 15,
-        color: BRAND.text,
-        minWidth: 0,
-      }}
-    >
-      {section.title || "Untitled Block"}
-    </div>
-  </div>
+                            <div
+                              style={{
+                                fontWeight: 700,
+                                fontSize: 15,
+                                color: theme.text,
+                                minWidth: 0,
+                              }}
+                            >
+                              {section.title || "Untitled Block"}
+                            </div>
+                          </div>
 
-  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-  <button
-    type="button"
-    style={dangerButtonStyleSmall}
-    onClick={() => removeSection(section.id)}
-  >
-    Delete
-  </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <button
+                              type="button"
+                              style={getDangerButtonStyleSmall()}
+                              onClick={() => removeSection(section.id)}
+                            >
+                              Delete
+                            </button>
 
-  <button
-    type="button"
-    style={secondaryButtonStyleSmall}
-    onClick={() => duplicateSection(section.id)}
-  >
-    Duplicate
-  </button>
+                            <button
+                              type="button"
+                              style={getSecondaryButtonStyleSmall(theme)}
+                              onClick={() => duplicateSection(section.id)}
+                            >
+                              Duplicate
+                            </button>
 
-  <button
-    type="button"
-    style={secondaryButtonStyleSmall}
-    onClick={() => toggleSectionCollapsed(section.id)}
-  >
-    {isCollapsed ? "Expand" : "Collapse"}
-  </button>
-</div>
-</div>
+                            <button
+                              type="button"
+                              style={getSecondaryButtonStyleSmall(theme)}
+                              onClick={() => toggleSectionCollapsed(section.id)}
+                            >
+                              {isCollapsed ? "Expand" : "Collapse"}
+                            </button>
+                          </div>
+                        </div>
 
                         {!isCollapsed && (
                           <>
-                            <label style={labelBlockStyle}>
+                            <label style={{ ...labelBlockStyle, color: theme.text }}>
                               <span>Title</span>
                               <input
                                 ref={(el) => {
                                   sectionTitleInputRefs.current[section.id] = el;
                                 }}
-                                style={inputStyle}
+                                style={getInputStyle(theme)}
                                 value={section.title}
                                 onChange={(e) => updateSection(section.id, "title", e.target.value)}
                               />
                             </label>
 
-                            <label style={labelBlockStyle}>
+                            <label style={{ ...labelBlockStyle, color: theme.text }}>
                               <span>Note</span>
                               <input
-                                style={inputStyle}
+                                style={getInputStyle(theme)}
                                 value={section.note}
                                 onChange={(e) => updateSection(section.id, "note", e.target.value)}
                                 placeholder="Pad, keys, electric"
                               />
                             </label>
 
-                            <label style={labelBlockStyle}>
+                            <label style={{ ...labelBlockStyle, color: theme.text }}>
                               <span>Content</span>
                               <textarea
-                                style={textareaStyle}
+                                style={getTextareaStyle(theme)}
                                 value={section.content}
                                 onChange={(e) => updateSection(section.id, "content", e.target.value)}
                               />
                             </label>
 
-                            <p style={helpTextStyle}>
+                            <p style={{ ...helpTextStyle, color: theme.muted }}>
                               Use inline chord tags like [1], [5], [6m], [1/3] and dynamic notes like {"{BUILD!!}"}.
                             </p>
-
-                            <div />
                           </>
                         )}
                       </div>
@@ -1827,14 +1941,14 @@ function removeSection(id: string) {
               </div>
 
               <div style={{ marginTop: 16 }}>
-                <button style={primaryButtonStyle} onClick={addSection}>
+                <button style={getPrimaryButtonStyle()} onClick={addSection}>
                   + Add block
                 </button>
               </div>
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-start" }}>
-              <button className="floating-print-button" style={secondaryButtonStyle} onClick={handlePrint}>
+              <button className="floating-print-button" style={getSecondaryButtonStyle(theme)} onClick={handlePrint}>
                 Print View
               </button>
             </div>
@@ -1852,7 +1966,7 @@ function removeSection(id: string) {
             <div
               className="preview-panel"
               style={{
-                ...panelStyle,
+                ...getPanelStyle(theme),
                 height: "100%",
                 display: "flex",
                 flexDirection: "column",
@@ -1871,10 +1985,10 @@ function removeSection(id: string) {
                   gap: 8,
                   marginBottom: 10,
                   fontSize: 13,
-                  color: BRAND.muted,
+                  color: theme.muted,
                   position: "sticky",
                   top: 0,
-                  background: "white",
+                  background: theme.toolbarBg,
                   zIndex: 2,
                   paddingBottom: 6,
                   flex: "0 0 auto",
@@ -1884,7 +1998,7 @@ function removeSection(id: string) {
                 <div
                   style={{
                     fontWeight: 700,
-                    color: BRAND.text,
+                    color: theme.text,
                     letterSpacing: "-0.01em",
                   }}
                 >
@@ -1894,18 +2008,18 @@ function removeSection(id: string) {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span>Zoom: {Math.round(previewScale * 100)}%</span>
                   <button
-                    style={secondaryButtonStyleSmall}
+                    style={getSecondaryButtonStyleSmall(theme)}
                     onClick={() => setPreviewScale((s) => Math.max(0.55, Number((s - 0.05).toFixed(2))))}
                   >
                     -
                   </button>
                   <button
-                    style={secondaryButtonStyleSmall}
+                    style={getSecondaryButtonStyleSmall(theme)}
                     onClick={() => setPreviewScale((s) => Math.min(1.1, Number((s + 0.05).toFixed(2))))}
                   >
                     +
                   </button>
-                  <button style={secondaryButtonStyleSmall} onClick={() => setPreviewScale(0.75)}>
+                  <button style={getSecondaryButtonStyleSmall(theme)} onClick={() => setPreviewScale(0.75)}>
                     Reset Zoom
                   </button>
                 </div>
@@ -1919,6 +2033,9 @@ function removeSection(id: string) {
                   minWidth: 0,
                   overflowX: "auto",
                   overflowY: "auto",
+                  background: theme.panelMuted,
+                  borderRadius: 16,
+                  padding: 12,
                 }}
               >
                 <div
@@ -1986,7 +2103,7 @@ function removeSection(id: string) {
             </div>
           </div>
         </div>
-      </div>
+      </div> 
 
       <div className="print-root" style={{ display: "none" }}>
         {documentPages.map((page, pageIndex) => (
@@ -2031,22 +2148,145 @@ function removeSection(id: string) {
           position: "fixed",
           inset: 0,
           pointerEvents: "none",
-          background:
-            "radial-gradient(circle at top left, rgba(102,217,255,0.08), transparent 28%), radial-gradient(circle at bottom right, rgba(242,180,131,0.07), transparent 28%)",
+          background: `radial-gradient(circle at top left, ${theme.backgroundGlowA}, transparent 28%), radial-gradient(circle at bottom right, ${theme.backgroundGlowB}, transparent 28%)`,
         }}
       />
     </div>
   );
 }
 
-const panelStyle: React.CSSProperties = {
-  position: "relative",
-  background: BRAND.panel,
-  borderRadius: 18,
-  padding: 18,
-  boxShadow: "0 6px 20px rgba(3, 43, 74, 0.08)",
-  border: `1px solid ${BRAND.border}`,
-};
+function getPanelStyle(theme: ThemeTokens): React.CSSProperties {
+  return {
+    position: "relative",
+    background: theme.panel,
+    borderRadius: 18,
+    padding: 18,
+    boxShadow: theme.shadow,
+    border: `1px solid ${theme.border}`,
+    transition: "background 180ms ease, border-color 180ms ease, box-shadow 180ms ease",
+  };
+}
+
+function getInputStyle(theme: ThemeTokens): React.CSSProperties {
+  return {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: `1px solid ${theme.border}`,
+    fontSize: 14,
+    color: theme.inputText,
+    background: theme.inputBg,
+    outline: "none",
+    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
+  };
+}
+
+function getTextareaStyle(theme: ThemeTokens): React.CSSProperties {
+  return {
+    width: "100%",
+    boxSizing: "border-box",
+    minHeight: 140,
+    padding: "12px",
+    borderRadius: 12,
+    border: `1px solid ${theme.border}`,
+    fontSize: 14,
+    fontFamily: "Courier New, monospace",
+    resize: "vertical",
+    background: theme.inputBg,
+    color: theme.inputText,
+    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
+  };
+}
+
+function getPrimaryButtonStyle(): React.CSSProperties {
+  return {
+    padding: "10px 14px",
+    borderRadius: 12,
+    border: "none",
+    background: BRAND.primary,
+    color: "white",
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "0 6px 16px rgba(5,58,99,0.18)",
+  };
+}
+
+function getSecondaryButtonStyle(theme: ThemeTokens): React.CSSProperties {
+  return {
+    padding: "10px 14px",
+    borderRadius: 12,
+    border: `1px solid ${theme.border}`,
+    background: theme.toggleBg,
+    color: theme.text,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
+  };
+}
+
+function getSecondaryButtonStyleSmall(theme: ThemeTokens): React.CSSProperties {
+  return {
+    padding: "6px 10px",
+    borderRadius: 10,
+    border: `1px solid ${theme.border}`,
+    background: theme.toggleBg,
+    color: theme.text,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontSize: 12,
+    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
+  };
+}
+
+function getDangerButtonStyleSmall(): React.CSSProperties {
+  return {
+    padding: "6px 10px",
+    borderRadius: 10,
+    border: `1px solid ${BRAND.dangerBorder}`,
+    background: BRAND.dangerBg,
+    color: BRAND.dangerText,
+    fontWeight: 700,
+    cursor: "pointer",
+    fontSize: 12,
+  };
+}
+
+function getEditorCardStyle(theme: ThemeTokens): React.CSSProperties {
+  return {
+    border: `1px solid ${theme.border}`,
+    borderRadius: 16,
+    padding: 14,
+    display: "grid",
+    gap: 12,
+    background: theme.panelSoft,
+    boxShadow: theme.cardShadow,
+  };
+}
+
+function getLibraryCardStyle(theme: ThemeTokens): React.CSSProperties {
+  return {
+    border: `1px solid ${theme.border}`,
+    borderRadius: 14,
+    padding: 12,
+    background: theme.panelSoft,
+    boxShadow: theme.cardShadow,
+  };
+}
+
+function getThemeToggleStyle(theme: ThemeTokens): React.CSSProperties {
+  return {
+    padding: "8px 12px",
+    borderRadius: 12,
+    border: `1px solid ${theme.border}`,
+    background: theme.toggleBg,
+    color: theme.text,
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: theme.cardShadow,
+    transition: "background 180ms ease, border-color 180ms ease, color 180ms ease",
+  };
+}
 
 const previewPaperStyle: React.CSSProperties = {
   background: "#f9fafb",
@@ -2078,79 +2318,9 @@ const labelBlockStyle: React.CSSProperties = {
   fontWeight: 600,
 };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: `1px solid ${BRAND.border}`,
-  fontSize: 14,
-  color: "#000000",
-  background: "#ffffff",
-  outline: "none",
-};
-
-const textareaStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  minHeight: 140,
-  padding: "12px",
-  borderRadius: 12,
-  border: `1px solid ${BRAND.border}`,
-  fontSize: 14,
-  fontFamily: "Courier New, monospace",
-  resize: "vertical",
-  background: "#ffffff",
-  color: "#000000",
-};
-
-const primaryButtonStyle: React.CSSProperties = {
-  padding: "10px 14px",
-  borderRadius: 12,
-  border: "none",
-  background: BRAND.primary,
-  color: "white",
-  fontWeight: 700,
-  cursor: "pointer",
-  boxShadow: "0 6px 16px rgba(5,58,99,0.18)",
-};
-
-const secondaryButtonStyle: React.CSSProperties = {
-  padding: "10px 14px",
-  borderRadius: 12,
-  border: `1px solid ${BRAND.border}`,
-  background: "white",
-  color: BRAND.text,
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const secondaryButtonStyleSmall: React.CSSProperties = {
-  padding: "6px 10px",
-  borderRadius: 10,
-  border: `1px solid ${BRAND.border}`,
-  background: "white",
-  color: BRAND.text,
-  fontWeight: 600,
-  cursor: "pointer",
-  fontSize: 12,
-};
-
-const dangerButtonStyleSmall: React.CSSProperties = {
-  padding: "6px 10px",
-  borderRadius: 10,
-  border: `1px solid ${BRAND.dangerBorder}`,
-  background: BRAND.dangerBg,
-  color: BRAND.dangerText,
-  fontWeight: 700,
-  cursor: "pointer",
-  fontSize: 12,
-};
-
 const sectionHeadingStyle: React.CSSProperties = {
   marginTop: 0,
   marginBottom: 12,
-  color: BRAND.text,
   fontWeight: 700,
   letterSpacing: "-0.01em",
 };
@@ -2158,27 +2328,8 @@ const sectionHeadingStyle: React.CSSProperties = {
 const helpTextStyle: React.CSSProperties = {
   marginTop: 8,
   marginBottom: 0,
-  color: BRAND.muted,
   fontSize: 13,
   lineHeight: 1.5,
-};
-
-const editorCardStyle: React.CSSProperties = {
-  border: `1px solid ${BRAND.border}`,
-  borderRadius: 16,
-  padding: 14,
-  display: "grid",
-  gap: 12,
-  background: BRAND.panelSoft,
-  boxShadow: "0 2px 8px rgba(3, 43, 74, 0.03)",
-};
-
-const libraryCardStyle: React.CSSProperties = {
-  border: `1px solid ${BRAND.border}`,
-  borderRadius: 14,
-  padding: 12,
-  background: BRAND.panelSoft,
-  boxShadow: "0 2px 8px rgba(3, 43, 74, 0.03)",
 };
 
 const roadmapChipStyle: React.CSSProperties = {
