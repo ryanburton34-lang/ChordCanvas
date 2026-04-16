@@ -552,7 +552,7 @@ function paginateSectionsWithHeights(
   chartBuilder: string,
 ): PrintPage[] {
   const pages: PrintPage[] = [];
-  const footerReserve = chartBuilder.trim() ? PAGINATION.footerReservePx : 0;
+ const footerReserve = 0;
 
   const firstPageColumnLimit =
     geom.contentHeightPx -
@@ -703,30 +703,6 @@ function HeaderBlock({
         ))}
       </div>
     </>
-  );
-}
-
-type FooterBlockProps = {
-  chartBuilder: string;
-};
-
-function FooterBlock({ chartBuilder }: FooterBlockProps) {
-  if (!chartBuilder.trim()) return null;
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        right: 24,
-        bottom: 2,
-        textAlign: "right",
-        fontSize: 11,
-        color: "#6B7280",
-        fontWeight: 600,
-      }}
-    >
-      Chart Created By {chartBuilder}
-    </div>
   );
 }
 
@@ -883,6 +859,7 @@ export default function App() {
   const [dragOverSectionId, setDragOverSectionId] = useState<string | null>(null);
   const [dragInsertPosition, setDragInsertPosition] = useState<DragInsertPosition>(null);
   const [focusSectionTitleId, setFocusSectionTitleId] = useState<string | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number>(PAGINATION.headerFallbackHeightPx);
   const [measuredSectionHeights, setMeasuredSectionHeights] = useState<Record<string, number>>({});
 
@@ -896,6 +873,23 @@ export default function App() {
   const geom = useMemo(() => getPageGeometry(), []);
   const roadmapItems = useMemo(() => splitRoadmap(roadmap), [roadmap]);
   const theme = THEME;
+
+  useEffect(() => {
+    function handleAfterPrint() {
+      setIsPrinting(false);
+    }
+
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
+
+  useEffect(() => {
+    if (!isPrinting) return;
+    const timeout = window.setTimeout(() => {
+      window.print();
+    }, 80);
+    return () => window.clearTimeout(timeout);
+  }, [isPrinting]);
 
   useEffect(() => {
     try {
@@ -1041,17 +1035,19 @@ export default function App() {
   }, [sections, title, artist, bpm, timeSignature, chartBuilder, songKey, roadmapItems.length, roadmap, effectiveDisplayMode]);
 
   const documentPages = useMemo(() => {
-    return paginateSectionsWithHeights(
-      sections,
-      measuredSectionHeights,
-      measuredHeaderHeight,
-      geom,
-      chartBuilder,
-    );
-  }, [sections, measuredSectionHeights, measuredHeaderHeight, geom, chartBuilder]);
+  return paginateSectionsWithHeights(
+    sections,
+    measuredSectionHeights,
+    measuredHeaderHeight,
+    geom,
+    chartBuilder,
+  );
+}, [sections, measuredSectionHeights, measuredHeaderHeight, geom, chartBuilder]);
 
-  const scaledPaperWidth = Math.ceil(geom.pageWidthPx * previewScale);
-  const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
+const isSinglePrintPage = documentPages.length === 1;
+
+const scaledPaperWidth = Math.ceil(geom.pageWidthPx * previewScale);
+const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
 
   function getCurrentSongData(): SongData {
     return {
@@ -1242,138 +1238,12 @@ export default function App() {
   }
 
   function handlePrint() {
-    const printRoot = document.querySelector(".print-root");
-    if (!printRoot) return;
-
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    iframe.setAttribute("aria-hidden", "true");
-
-    document.body.appendChild(iframe);
-
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) {
-      document.body.removeChild(iframe);
-      return;
-    }
-
-    iframeDoc.open();
-    iframeDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${title || "ChordCanvas Chart"}</title>
-          <style>
-            @page {
-              size: letter portrait;
-              margin: 0;
-            }
-
-            html, body {
-              margin: 0;
-              padding: 0;
-              background: white;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-
-            body {
-              font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-            }
-
-            .print-root {
-              display: block;
-              margin: 0;
-              padding: 0;
-            }
-
-            .print-page-dom {
-              display: block;
-              margin: 0;
-              padding: 0;
-            }
-
-            .print-page-dom:not(:first-child) {
-              break-before: page;
-              page-break-before: always;
-            }
-
-            .print-paper-dom {
-              width: ${PAGE.widthIn}in;
-              height: ${PAGE.heightIn}in;
-              box-sizing: border-box;
-              padding: ${PAGE.marginIn}in;
-              margin: 0;
-              background: white;
-              overflow: hidden;
-              position: relative;
-            }
-
-            .print-sections-dom {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: ${PAGE.columnGapIn}in;
-              align-items: start;
-            }
-
-            .print-column-dom {
-              display: grid;
-              gap: ${PAGE.sectionGapPx}px;
-              align-content: start;
-            }
-
-            .print-section-wrap-dom,
-            .print-section-card-dom,
-            .print-line-dom {
-              break-inside: avoid;
-              page-break-inside: avoid;
-            }
-
-            .print-section-card-dom {
-              display: block;
-              width: 100%;
-              box-shadow: none;
-            }
-
-            .print-line-dom span {
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-          </style>
-        </head>
-        <body>
-          ${printRoot.innerHTML}
-        </body>
-      </html>
-    `);
-    iframeDoc.close();
-
-    const doPrint = () => {
-      const win = iframe.contentWindow;
-      if (!win) {
-        document.body.removeChild(iframe);
-        return;
-      }
-
-      win.focus();
-      win.print();
-
-      window.setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
-    };
-
-    window.setTimeout(doPrint, 150);
+    setIsPrinting(true);
   }
 
   return (
     <div
-      className="app-shell"
+      className={`app-shell ${isPrinting ? "printing" : ""}`}
       style={{
         height: "100vh",
         overflow: "hidden",
@@ -1384,6 +1254,140 @@ export default function App() {
         boxSizing: "border-box",
       }}
     >
+      <style>{`
+  @page {
+    size: letter portrait;
+    margin: ${PAGE.marginIn}in;
+  }
+
+  @media print {
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .app-shell {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  background: white !important;
+}
+
+.screen-root {
+  display: none !important;
+}
+
+[aria-hidden="true"] {
+  display: none !important;
+}
+
+.app-shell > div[style*="position: fixed"] {
+  display: none !important;
+}
+
+.print-root {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  display: block !important;
+}
+
+    .print-root {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      display: block !important;
+    }
+
+    .screen-root {
+      display: none !important;
+    }
+
+    .print-page-dom {
+      display: block !important;
+      width: 100%;
+      box-sizing: border-box;
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+      margin: 0;
+      padding: 0;
+    }
+
+    .print-page-dom + .print-page-dom {
+      break-before: page;
+      page-break-before: always;
+    }
+
+    .single-print-page {
+      break-before: auto !important;
+      page-break-before: auto !important;
+      break-after: auto !important;
+      page-break-after: auto !important;
+    }
+
+    .single-print-page .print-paper-dom {
+      height: auto !important;
+      min-height: 10.7in !important;
+    }
+
+    .print-paper-dom {
+      width: ${PAGE.widthIn}in !important;
+      height: ${PAGE.heightIn}in !important;
+      box-sizing: border-box !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      background: white !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      overflow: hidden !important;
+      break-inside: avoid-page !important;
+      page-break-inside: avoid !important;
+    }
+
+    .print-sections-dom {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: ${PAGE.columnGapIn}in !important;
+      align-items: start !important;
+      break-inside: avoid-page !important;
+      page-break-inside: avoid !important;
+    }
+
+    .print-column-dom {
+      display: grid !important;
+      gap: ${PAGE.sectionGapPx}px !important;
+      align-content: start !important;
+      break-inside: avoid-page !important;
+      page-break-inside: avoid !important;
+    }
+
+    .print-section-wrap-dom,
+    .print-section-card-dom,
+    .print-line-dom {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
+    .print-section-card-dom {
+      display: block !important;
+      width: 100% !important;
+      box-shadow: none !important;
+    }
+
+    .print-line-dom span {
+      print-color-adjust: exact !important;
+      -webkit-print-color-adjust: exact !important;
+    }
+  }
+`}</style>
+
       <div
         aria-hidden="true"
         style={{
@@ -1609,35 +1613,35 @@ export default function App() {
               </div>
 
               <div style={toolbarStyle(theme)}>
-                <button
-                  style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
-                  onClick={createNewSong}
-                >
-                  New Song
-                </button>
+  <button
+    style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
+    onClick={createNewSong}
+  >
+    New Song
+  </button>
 
-                <button
-                  style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Load Song
-                </button>
+  <button
+    style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
+    onClick={() => fileInputRef.current?.click()}
+  >
+    Load Song
+  </button>
 
-                <button
-                  style={{ ...getPrimaryButtonStyle(), flex: 1 }}
-                  onClick={saveSongToFile}
-                >
-                  Save Song
-                </button>
+  <button
+    style={{ ...getPrimaryButtonStyle(), flex: 1 }}
+    onClick={saveSongToFile}
+  >
+    Save Song
+  </button>
 
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".chordcanvas,.json"
-                  style={{ display: "none" }}
-                  onChange={handleLoadFile}
-                />
-              </div>
+  <input
+    ref={fileInputRef}
+    type="file"
+    accept=".chordcanvas,.json"
+    style={{ display: "none" }}
+    onChange={handleLoadFile}
+  />
+</div>
             </div>
 
             <div style={getPanelStyle(theme)}>
@@ -1857,19 +1861,18 @@ export default function App() {
 
             <div style={{ display: "flex", justifyContent: "flex-start" }}>
               <button
-                className="floating-print-button"
-                style={{
-                  ...getPrimaryButtonStyle(),
-                  padding: "14px 18px",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  borderRadius: 14,
-                  boxShadow: "0 6px 14px rgba(0,0,0,0.25)",
-                }}
-                onClick={handlePrint}
-              >
-                Save as PDF
-              </button>
+  className="floating-print-button"
+  style={{
+    ...getPrimaryButtonStyle(),
+    padding: "14px 18px",
+    fontSize: 15,
+    fontWeight: 700,
+    borderRadius: 14,
+  }}
+  onClick={handlePrint}
+>
+  Save as PDF
+</button>
             </div>
           </div>
 
@@ -2018,7 +2021,7 @@ export default function App() {
                             />
                           </div>
 
-                          <FooterBlock chartBuilder={chartBuilder} />
+                        
                         </div>
                       </div>
                     ))}
@@ -2028,12 +2031,23 @@ export default function App() {
             </div>
           </div>
         </div>
-      </div>
+      </div> 
 
       <div className="print-root" style={{ display: "none" }}>
         {documentPages.map((page, pageIndex) => (
-          <div key={`print-${pageIndex}`} className="print-page-dom">
-            <div className="print-paper-dom" style={printPaperStyle}>
+<div
+  key={`print-${pageIndex}`}
+  className={`print-page-dom ${isSinglePrintPage ? "single-print-page" : ""}`}
+>            <div
+              className="print-paper-dom"
+              style={{
+                ...printPaperStyle,
+                width: `${PAGE.widthIn}in`,
+                height: `${PAGE.heightIn}in`,
+                padding: `${PAGE.marginIn}in`,
+                overflow: "hidden",
+              }}
+            >
               {page.isFirstPage && (
                 <HeaderBlock
                   title={title}
@@ -2055,7 +2069,6 @@ export default function App() {
                 />
               </div>
 
-              <FooterBlock chartBuilder={chartBuilder} />
             </div>
           </div>
         ))}
@@ -2181,14 +2194,13 @@ function toolbarStyle(theme: ThemeTokens): React.CSSProperties {
   return {
     display: "flex",
     gap: 8,
+    flexWrap: "wrap",
     marginTop: 16,
     padding: 10,
     borderRadius: 14,
     background: "#151515",
     border: `1px solid ${theme.border}`,
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02)",
-    width: "100%",
-    boxSizing: "border-box",
   };
 }
 
