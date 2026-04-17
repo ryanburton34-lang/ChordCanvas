@@ -24,7 +24,6 @@ type SongData = {
   bpm: string;
   timeSignature: string;
   displayMode: DisplayMode;
-  roadmap: string;
   sections: Section[];
 };
 
@@ -55,7 +54,6 @@ type ThemeTokens = {
   toggleBg: string;
 };
 
-const AUTOSAVE_KEY = "chord-chart-builder-autosave-v4";
 const LOGO_FULL = "/chordcanvas-logo-dark.png";
 
 const PAGE = {
@@ -71,7 +69,6 @@ const PAGE = {
 const PAGINATION = {
   pageSafetyBufferPx: 8,
   headerFallbackHeightPx: 132,
-  footerReservePx: 28,
 };
 
 const BRAND = {
@@ -156,7 +153,6 @@ function getDefaultSongData(): SongData {
     bpm: "",
     timeSignature: "",
     displayMode: "numbers",
-    roadmap: "",
     sections: [],
   };
 }
@@ -172,13 +168,13 @@ function getTemplateSection(type: SectionType): Section {
         content: "| 1 | 4 | 5 | 1 |\n| 1 | 4 | 5 | 1 |",
       };
     case "VERSE":
-      return {
-        id: makeId(),
-        type: "VERSE",
-        title: "VERSE",
-        note: "",
-        content: "Type verse lyrics here\nAdd inline chords like [1], [5], [6m], [1/3]",
-      };
+  return {
+    id: makeId(),
+    type: "VERSE",
+    title: "NEW BLOCK",
+    note: "",
+    content: "",
+  };
     case "CHORUS":
       return {
         id: makeId(),
@@ -839,6 +835,60 @@ function PageSections({ page, songKey, effectiveDisplayMode, printMode = false }
   );
 }
 
+function normalizeFlowTitle(title: string) {
+  return title.trim().toUpperCase().replace(/\s+/g, " ");
+}
+
+function sectionTitleToFlowToken(title: string): string {
+  const normalized = normalizeFlowTitle(title);
+
+  const patterns: Array<[RegExp, (n?: string) => string]> = [
+    [/^INTRO(?:\s+(\d+))?$/, (n) => `INTRO${n ?? ""}`],
+    [/^VERSE(?:\s+(\d+))?$/, (n) => (n ? `V${n}` : "VERSE")],
+[/^CHORUS(?:\s+(\d+))?$/, (n) => `CH${n ?? ""}`],    [/^BRIDGE(?:\s+(\d+))?$/, (n) => (n ? `BR${n}` : "BR")],
+    [/^INSTRUMENTAL(?:\s+(\d+))?$/, (n) => `INST${n ?? ""}`],
+    [/^OUTRO(?:\s+(\d+))?$/, (n) => `OUT${n ?? ""}`],
+    [/^TAG(?:\s+(\d+))?$/, (n) => `TAG${n ?? ""}`],
+    [/^TURNAROUND(?:\s+(\d+))?$/, (n) => `TURN${n ?? ""}`],
+    [/^TURN(?:\s+(\d+))?$/, (n) => `TURN${n ?? ""}`],
+    [/^INTERLUDE(?:\s+(\d+))?$/, (n) => `INT${n ?? ""}`],
+  ];
+
+  for (const [pattern, formatter] of patterns) {
+    const match = normalized.match(pattern);
+    if (match) {
+      return formatter(match[1]);
+    }
+  }
+
+  return normalized || "BLOCK";
+}
+
+function buildRoadmapFromSections(sections: Section[]): string {
+  const tokens = sections
+    .map((section) => sectionTitleToFlowToken(section.title))
+    .filter(Boolean);
+
+  if (tokens.length === 0) return "";
+
+  const collapsed: string[] = [];
+  let current = tokens[0];
+  let count = 1;
+
+  for (let i = 1; i < tokens.length; i += 1) {
+    if (tokens[i] === current) {
+      count += 1;
+    } else {
+      collapsed.push(count > 1 ? `${current}x${count}` : current);
+      current = tokens[i];
+      count = 1;
+    }
+  }
+
+  collapsed.push(count > 1 ? `${current}x${count}` : current);
+
+  return collapsed.join(" ");
+}
 export default function App() {
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
@@ -846,9 +896,7 @@ export default function App() {
   const [bpm, setBpm] = useState("");
   const [timeSignature, setTimeSignature] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("numbers");
-  const [roadmap, setRoadmap] = useState("");
   const [sections, setSections] = useState<Section[]>([]);
-  const [autosaveStatus, setAutosaveStatus] = useState("Not saved yet");
   const [previewScale, setPreviewScale] = useState(0.65);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
@@ -867,8 +915,8 @@ export default function App() {
 
   const effectiveDisplayMode: DisplayMode = songKey === "#" ? "numbers" : displayMode;
   const geom = useMemo(() => getPageGeometry(), []);
-  const roadmapItems = useMemo(() => splitRoadmap(roadmap), [roadmap]);
-  const theme = THEME;
+const autoRoadmap = useMemo(() => buildRoadmapFromSections(sections), [sections]);
+const roadmapItems = useMemo(() => splitRoadmap(autoRoadmap), [autoRoadmap]);  const theme = THEME;
 
   useEffect(() => {
     function handleAfterPrint() {
@@ -886,63 +934,6 @@ export default function App() {
     }, 80);
     return () => window.clearTimeout(timeout);
   }, [isPrinting]);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(AUTOSAVE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as SongData;
-        const normalizedSections = normalizeSections(parsed.sections);
-
-        setTitle(parsed.title ?? "");
-        setArtist(parsed.artist ?? "");
-        setSongKey(parsed.key ?? "#");
-        setBpm(parsed.bpm ?? "");
-        setTimeSignature(parsed.timeSignature ?? "");
-        setDisplayMode(parsed.displayMode ?? "numbers");
-        setRoadmap(parsed.roadmap ?? "");
-        setSections(normalizedSections);
-        setCollapsedSections(
-          Object.fromEntries(normalizedSections.map((section) => [section.id, true])),
-        );
-        setAutosaveStatus("Loaded autosaved chart");
-        return;
-      }
-    } catch (error) {
-      console.error("Failed to load autosave:", error);
-    }
-
-    const defaults = getDefaultSongData();
-    setTitle(defaults.title);
-    setArtist(defaults.artist);
-    setSongKey(defaults.key);
-    setBpm(defaults.bpm);
-    setTimeSignature(defaults.timeSignature);
-    setDisplayMode(defaults.displayMode);
-    setRoadmap(defaults.roadmap);
-    setSections(defaults.sections);
-  }, []);
-
-  useEffect(() => {
-    const payload: SongData = {
-      title,
-      artist,
-      key: songKey,
-      bpm,
-      timeSignature,
-      displayMode: effectiveDisplayMode,
-      roadmap,
-      sections,
-    };
-
-    try {
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
-      setAutosaveStatus(`Autosaved at ${new Date().toLocaleTimeString()}`);
-    } catch (error) {
-      console.error("Failed to autosave:", error);
-      setAutosaveStatus("Autosave failed");
-    }
-  }, [title, artist, songKey, bpm, timeSignature, effectiveDisplayMode, roadmap, sections]);
 
   useEffect(() => {
     function handleWheel(event: WheelEvent) {
@@ -1025,7 +1016,7 @@ export default function App() {
       window.cancelAnimationFrame(rafA);
       window.cancelAnimationFrame(rafB);
     };
-  }, [sections, title, artist, bpm, timeSignature, songKey, roadmapItems.length, roadmap, effectiveDisplayMode]);
+  }, [sections, title, artist, bpm, timeSignature, songKey, roadmapItems.length, effectiveDisplayMode]);
 
   const documentPages = useMemo(() => {
   return paginateSectionsWithHeights(
@@ -1049,7 +1040,6 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
       bpm,
       timeSignature,
       displayMode: effectiveDisplayMode,
-      roadmap,
       sections,
     };
   }
@@ -1063,12 +1053,10 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
     setBpm(song.bpm ?? "");
     setTimeSignature(song.timeSignature ?? "");
     setDisplayMode(song.displayMode ?? "numbers");
-    setRoadmap(song.roadmap ?? "");
     setSections(normalizedSections);
     setCollapsedSections(
       Object.fromEntries(normalizedSections.map((section) => [section.id, true])),
     );
-    setAutosaveStatus("Loaded song into editor");
   }
 
   function updateSection(id: string, field: keyof Section, value: string) {
@@ -1158,18 +1146,23 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
   }
 
   function createNewSong() {
-    const blank: SongData = {
-      title: "",
-      artist: "",
-      key: "#",
-      bpm: "",
-      timeSignature: "",
-      displayMode: "numbers",
-      roadmap: "",
-      sections: [],
-    };
-    loadSongIntoEditor(blank);
-  }
+  const confirmed = window.confirm(
+    "Are you sure you want to create a new song? Unsaved changes will be lost."
+  );
+  if (!confirmed) return;
+
+  const blank: SongData = {
+    title: "",
+    artist: "",
+    key: "#",
+    bpm: "",
+    timeSignature: "",
+    displayMode: "numbers",
+    sections: [],
+  };
+
+  loadSongIntoEditor(blank);
+}
 
   function saveSongToFile() {
     const payload = {
@@ -1212,11 +1205,9 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
         bpm: song?.bpm ?? "",
         timeSignature: song?.timeSignature ?? "",
         displayMode: song?.displayMode ?? "numbers",
-        roadmap: song?.roadmap ?? "",
         sections: normalizedSections,
       });
 
-      setAutosaveStatus(`Loaded file: ${file.name}`);
     } catch (error) {
       console.error("Failed to load file:", error);
       window.alert("That file could not be loaded.");
@@ -1580,10 +1571,6 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
                 </p>
               )}
 
-              <div style={{ marginTop: 14, fontSize: 13, color: theme.muted, fontWeight: 600 }}>
-                {autosaveStatus}
-              </div>
-
               <div style={toolbarStyle(theme)}>
   <button
     style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
@@ -1594,7 +1581,14 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
 
   <button
     style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
-    onClick={() => fileInputRef.current?.click()}
+    onClick={() => {
+  const confirmed = window.confirm(
+    "Are you sure you want to load a song? Unsaved changes will be lost."
+  );
+  if (!confirmed) return;
+
+  fileInputRef.current?.click();
+}}
   >
     Load Song
   </button>
@@ -1614,19 +1608,6 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
     onChange={handleLoadFile}
   />
 </div>
-            </div>
-
-            <div style={getPanelStyle(theme)}>
-              <div style={panelAccentLineStyle} />
-              <h2 style={{ ...sectionHeadingStyle, color: theme.text }}>Song Flow</h2>
-              <textarea
-                style={{ ...getTextareaStyle(theme), minHeight: 80 }}
-                value={roadmap}
-                onChange={(e) => setRoadmap(e.target.value)}
-              />
-              <p style={{ ...helpTextStyle, color: theme.muted }}>
-                Example: INTRO V1 CH TURN V1 CHx2 INST BR BR2 CHx2
-              </p>
             </div>
 
             <div style={getPanelStyle(theme)}>
@@ -1798,17 +1779,20 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
                                 style={getInputStyle(theme)}
                                 value={section.note}
                                 onChange={(e) => updateSection(section.id, "note", e.target.value)}
-                                placeholder="Pad, keys, electric"
+                                placeholder="Band groove, add bass"
                               />
                             </label>
 
                             <label style={{ ...labelBlockStyle, color: theme.text }}>
                               <span>Content</span>
                               <textarea
-                                style={getTextareaStyle(theme)}
-                                value={section.content}
-                                onChange={(e) => updateSection(section.id, "content", e.target.value)}
-                              />
+  style={getTextareaStyle(theme)}
+  value={section.content}
+  placeholder={`Type lyrics here.
+Add inline chords like:
+A[1]mazing grace, how [4]sweet the [1]sound`}
+  onChange={(e) => updateSection(section.id, "content", e.target.value)}
+/>
                             </label>
 
                             <p style={{ ...helpTextStyle, color: theme.muted }}>
