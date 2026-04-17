@@ -145,18 +145,6 @@ function normalizeSections(sections: Section[] | undefined): Section[] {
   }));
 }
 
-function getDefaultSongData(): SongData {
-  return {
-    title: "",
-    artist: "",
-    key: "#",
-    bpm: "",
-    timeSignature: "",
-    displayMode: "numbers",
-    sections: [],
-  };
-}
-
 function getTemplateSection(type: SectionType): Section {
   switch (type) {
     case "INTRO":
