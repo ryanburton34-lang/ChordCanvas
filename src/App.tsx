@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type DisplayMode = "numbers" | "letters";
+type ChartSize = "regular" | "large";
 type SectionType = "INTRO" | "VERSE" | "CHORUS" | "TURN" | "BRIDGE" | "INSTRUMENTAL" | "OUTRO";
 
 type Section = {
@@ -24,6 +25,7 @@ type SongData = {
   bpm: string;
   timeSignature: string;
   displayMode: DisplayMode;
+  chartSize: ChartSize;
   sections: Section[];
 };
 
@@ -156,13 +158,13 @@ function getTemplateSection(type: SectionType): Section {
         content: "| 1 | 4 | 5 | 1 |\n| 1 | 4 | 5 | 1 |",
       };
     case "VERSE":
-  return {
-    id: makeId(),
-    type: "VERSE",
-    title: "NEW BLOCK",
-    note: "",
-    content: "",
-  };
+      return {
+        id: makeId(),
+        type: "VERSE",
+        title: "NEW BLOCK",
+        note: "",
+        content: "",
+      };
     case "CHORUS":
       return {
         id: makeId(),
@@ -484,46 +486,55 @@ function getPageGeometry() {
   };
 }
 
-function estimateWrappedLineRows(line: string, columnWidthPx: number) {
+function estimateWrappedLineRows(line: string, columnWidthPx: number, compact: boolean) {
   const usableWidthPx = Math.max(80, columnWidthPx - 28);
 
   if (!line.trim()) return 1;
 
   if (isBarLineContent(line)) {
-    return Math.max(1, Math.ceil((line.length * 7.3) / usableWidthPx));
+    const charWidth = compact ? 7.3 : 8.4;
+    return Math.max(1, Math.ceil((line.length * charWidth) / usableWidthPx));
   }
 
   const segments = parseInlineInput(line);
   let approxWidth = 0;
 
   segments.forEach((segment) => {
-    if (segment.chord) approxWidth += Math.max(18, segment.chord.length * 6.6);
-    if (segment.annotation) approxWidth += Math.max(26, segment.annotation.length * 6.6);
-    if (segment.lyric) approxWidth += segment.lyric.length * 6.9;
+    if (segment.chord) approxWidth += Math.max(18, segment.chord.length * (compact ? 6.6 : 7.6));
+    if (segment.annotation) {
+      approxWidth += Math.max(26, segment.annotation.length * (compact ? 6.6 : 7.6));
+    }
+    if (segment.lyric) approxWidth += segment.lyric.length * (compact ? 6.9 : 7.9);
   });
 
   return Math.max(1, Math.ceil(Math.max(approxWidth, 1) / usableWidthPx));
 }
 
-function estimateLineHeight(line: string, columnWidthPx: number) {
-  const baseLinePx = 13 * 1.45;
-  const rows = estimateWrappedLineRows(line, columnWidthPx);
+function estimateLineHeight(line: string, columnWidthPx: number, compact: boolean) {
+  const baseLinePx = compact ? 13 * 1.45 : 18 * 1.45;
+  const rows = estimateWrappedLineRows(line, columnWidthPx, compact);
   const parsed = parseInlineInput(line);
   const hasTopItems = parsed.some((segment) => !!segment.chord || !!segment.annotation);
-  const topPad = hasTopItems ? 18 : 0;
-  const minHeight = hasTopItems ? 26 : 0;
+  const topPad = hasTopItems ? (compact ? 18 : 22) : 0;
+  const minHeight = hasTopItems ? (compact ? 26 : 32) : 0;
   const contentHeight = rows * baseLinePx;
   return Math.max(minHeight, contentHeight + topPad);
 }
 
-function estimateSectionHeight(section: Section, columnWidthPx: number) {
+function estimateSectionHeight(section: Section, columnWidthPx: number, compact: boolean) {
   const lines = section.content.split("\n");
-  const verticalPadding = 20;
-  const titleHeight = 18;
-  const lineGaps = Math.max(0, lines.length - 1) * 4;
-  const contentHeight = lines.reduce((sum, line) => sum + estimateLineHeight(line, columnWidthPx), 0);
+  const verticalPadding = compact ? 20 : 28;
+  const titleHeight = compact ? 18 : 24;
+  const titleGap = compact ? 8 : 12;
+  const bottomReserve = compact ? 18 : 22;
+  const lineGap = compact ? 4 : 8;
+  const lineGaps = Math.max(0, lines.length - 1) * lineGap;
+  const contentHeight = lines.reduce(
+    (sum, line) => sum + estimateLineHeight(line, columnWidthPx, compact),
+    0,
+  );
 
-  return verticalPadding + titleHeight + 8 + contentHeight + lineGaps + 18;
+  return verticalPadding + titleHeight + titleGap + contentHeight + lineGaps + bottomReserve;
 }
 
 function paginateSectionsWithHeights(
@@ -531,9 +542,10 @@ function paginateSectionsWithHeights(
   sectionHeights: Record<string, number>,
   headerHeight: number,
   geom: ReturnType<typeof getPageGeometry>,
+  compact: boolean,
 ): PrintPage[] {
   const pages: PrintPage[] = [];
- const footerReserve = 0;
+  const footerReserve = 0;
 
   const firstPageColumnLimit =
     geom.contentHeightPx -
@@ -568,7 +580,7 @@ function paginateSectionsWithHeights(
 
   for (const section of sections) {
     const measured = sectionHeights[section.id];
-    const fallback = estimateSectionHeight(section, geom.columnWidthPx);
+    const fallback = estimateSectionHeight(section, geom.columnWidthPx, compact);
     const sectionHeight = (measured || fallback) + PAGE.sectionGapPx;
 
     if (fillingLeft) {
@@ -780,10 +792,17 @@ type PageSectionsProps = {
   page: PrintPage;
   songKey: string;
   effectiveDisplayMode: DisplayMode;
+  compact: boolean;
   printMode?: boolean;
 };
 
-function PageSections({ page, songKey, effectiveDisplayMode, printMode = false }: PageSectionsProps) {
+function PageSections({
+  page,
+  songKey,
+  effectiveDisplayMode,
+  compact,
+  printMode = false,
+}: PageSectionsProps) {
   return (
     <div
       className={printMode ? "print-sections-dom" : undefined}
@@ -794,27 +813,33 @@ function PageSections({ page, songKey, effectiveDisplayMode, printMode = false }
         alignItems: "start",
       }}
     >
-      <div className={printMode ? "print-column-dom" : "print-column"} style={{ display: "grid", gap: PAGE.sectionGapPx }}>
+      <div
+        className={printMode ? "print-column-dom" : "print-column"}
+        style={{ display: "grid", gap: PAGE.sectionGapPx }}
+      >
         {page.left.map((section) => (
           <SectionCard
             key={section.id}
             section={section}
             songKey={songKey}
             effectiveDisplayMode={effectiveDisplayMode}
-            compact
+            compact={compact}
             printMode={printMode}
           />
         ))}
       </div>
 
-      <div className={printMode ? "print-column-dom" : "print-column"} style={{ display: "grid", gap: PAGE.sectionGapPx }}>
+      <div
+        className={printMode ? "print-column-dom" : "print-column"}
+        style={{ display: "grid", gap: PAGE.sectionGapPx }}
+      >
         {page.right.map((section) => (
           <SectionCard
             key={section.id}
             section={section}
             songKey={songKey}
             effectiveDisplayMode={effectiveDisplayMode}
-            compact
+            compact={compact}
             printMode={printMode}
           />
         ))}
@@ -833,7 +858,8 @@ function sectionTitleToFlowToken(title: string): string {
   const patterns: Array<[RegExp, (n?: string) => string]> = [
     [/^INTRO(?:\s+(\d+))?$/, (n) => `INTRO${n ?? ""}`],
     [/^VERSE(?:\s+(\d+))?$/, (n) => (n ? `V${n}` : "VERSE")],
-[/^CHORUS(?:\s+(\d+))?$/, (n) => `CH${n ?? ""}`],    [/^BRIDGE(?:\s+(\d+))?$/, (n) => (n ? `BR${n}` : "BR")],
+    [/^CHORUS(?:\s+(\d+))?$/, (n) => `CH${n ?? ""}`],
+    [/^BRIDGE(?:\s+(\d+))?$/, (n) => (n ? `BR${n}` : "BR")],
     [/^INSTRUMENTAL(?:\s+(\d+))?$/, (n) => `INST${n ?? ""}`],
     [/^OUTRO(?:\s+(\d+))?$/, (n) => `OUT${n ?? ""}`],
     [/^TAG(?:\s+(\d+))?$/, (n) => `TAG${n ?? ""}`],
@@ -877,6 +903,7 @@ function buildRoadmapFromSections(sections: Section[]): string {
 
   return collapsed.join(" ");
 }
+
 export default function App() {
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
@@ -884,6 +911,7 @@ export default function App() {
   const [bpm, setBpm] = useState("");
   const [timeSignature, setTimeSignature] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("numbers");
+  const [chartSize, setChartSize] = useState<ChartSize>("regular");
   const [sections, setSections] = useState<Section[]>([]);
   const [previewScale, setPreviewScale] = useState(0.65);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
@@ -903,8 +931,10 @@ export default function App() {
 
   const effectiveDisplayMode: DisplayMode = songKey === "#" ? "numbers" : displayMode;
   const geom = useMemo(() => getPageGeometry(), []);
-const autoRoadmap = useMemo(() => buildRoadmapFromSections(sections), [sections]);
-const roadmapItems = useMemo(() => splitRoadmap(autoRoadmap), [autoRoadmap]);  const theme = THEME;
+  const autoRoadmap = useMemo(() => buildRoadmapFromSections(sections), [sections]);
+  const roadmapItems = useMemo(() => splitRoadmap(autoRoadmap), [autoRoadmap]);
+  const theme = THEME;
+  const chartCompact = chartSize === "regular";
 
   useEffect(() => {
     function handleAfterPrint() {
@@ -1004,21 +1034,32 @@ const roadmapItems = useMemo(() => splitRoadmap(autoRoadmap), [autoRoadmap]);  c
       window.cancelAnimationFrame(rafA);
       window.cancelAnimationFrame(rafB);
     };
-  }, [sections, title, artist, bpm, timeSignature, songKey, roadmapItems.length, effectiveDisplayMode]);
+  }, [
+    sections,
+    title,
+    artist,
+    bpm,
+    timeSignature,
+    songKey,
+    roadmapItems.length,
+    effectiveDisplayMode,
+    chartSize,
+  ]);
 
   const documentPages = useMemo(() => {
-  return paginateSectionsWithHeights(
-  sections,
-  measuredSectionHeights,
-  measuredHeaderHeight,
-  geom,
-);
-}, [sections, measuredSectionHeights, measuredHeaderHeight, geom]);
+    return paginateSectionsWithHeights(
+      sections,
+      measuredSectionHeights,
+      measuredHeaderHeight,
+      geom,
+      chartCompact,
+    );
+  }, [sections, measuredSectionHeights, measuredHeaderHeight, geom, chartCompact]);
 
-const isSinglePrintPage = documentPages.length === 1;
+  const isSinglePrintPage = documentPages.length === 1;
 
-const scaledPaperWidth = Math.ceil(geom.pageWidthPx * previewScale);
-const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
+  const scaledPaperWidth = Math.ceil(geom.pageWidthPx * previewScale);
+  const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
 
   function getCurrentSongData(): SongData {
     return {
@@ -1028,6 +1069,7 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
       bpm,
       timeSignature,
       displayMode: effectiveDisplayMode,
+      chartSize,
       sections,
     };
   }
@@ -1041,6 +1083,7 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
     setBpm(song.bpm ?? "");
     setTimeSignature(song.timeSignature ?? "");
     setDisplayMode(song.displayMode ?? "numbers");
+    setChartSize(song.chartSize ?? "regular");
     setSections(normalizedSections);
     setCollapsedSections(
       Object.fromEntries(normalizedSections.map((section) => [section.id, true])),
@@ -1111,7 +1154,11 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
     }
   }
 
-  function reorderSections(draggedId: string, targetId: string, position: Exclude<DragInsertPosition, null>) {
+  function reorderSections(
+    draggedId: string,
+    targetId: string,
+    position: Exclude<DragInsertPosition, null>,
+  ) {
     if (draggedId === targetId) return;
 
     setSections((current) => {
@@ -1134,23 +1181,24 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
   }
 
   function createNewSong() {
-  const confirmed = window.confirm(
-    "Are you sure you want to create a new song? Unsaved changes will be lost."
-  );
-  if (!confirmed) return;
+    const confirmed = window.confirm(
+      "Are you sure you want to create a new song? Unsaved changes will be lost.",
+    );
+    if (!confirmed) return;
 
-  const blank: SongData = {
-    title: "",
-    artist: "",
-    key: "#",
-    bpm: "",
-    timeSignature: "",
-    displayMode: "numbers",
-    sections: [],
-  };
+    const blank: SongData = {
+      title: "",
+      artist: "",
+      key: "#",
+      bpm: "",
+      timeSignature: "",
+      displayMode: "numbers",
+      chartSize: "regular",
+      sections: [],
+    };
 
-  loadSongIntoEditor(blank);
-}
+    loadSongIntoEditor(blank);
+  }
 
   function saveSongToFile() {
     const payload = {
@@ -1193,9 +1241,9 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
         bpm: song?.bpm ?? "",
         timeSignature: song?.timeSignature ?? "",
         displayMode: song?.displayMode ?? "numbers",
+        chartSize: song?.chartSize ?? "regular",
         sections: normalizedSections,
       });
-
     } catch (error) {
       console.error("Failed to load file:", error);
       window.alert("That file could not be loaded.");
@@ -1237,32 +1285,24 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
     }
 
     .app-shell {
-  height: auto !important;
-  min-height: 0 !important;
-  overflow: visible !important;
-  padding: 0 !important;
-  background: white !important;
-}
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: visible !important;
+      padding: 0 !important;
+      background: white !important;
+    }
 
-.screen-root {
-  display: none !important;
-}
+    .screen-root {
+      display: none !important;
+    }
 
-[aria-hidden="true"] {
-  display: none !important;
-}
+    [aria-hidden="true"] {
+      display: none !important;
+    }
 
-.app-shell > div[style*="position: fixed"] {
-  display: none !important;
-}
-
-.print-root {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  display: block !important;
-}
+    .app-shell > div[style*="position: fixed"] {
+      display: none !important;
+    }
 
     .print-root {
       position: absolute;
@@ -1270,10 +1310,6 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
       top: 0;
       width: 100%;
       display: block !important;
-    }
-
-    .screen-root {
-      display: none !important;
     }
 
     .print-page-dom {
@@ -1405,7 +1441,7 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
                   section={section}
                   songKey={songKey}
                   effectiveDisplayMode={effectiveDisplayMode}
-                  compact
+                  compact={chartCompact}
                   printMode
                 />
               </div>
@@ -1486,72 +1522,84 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
               </div>
 
               <div style={fieldGridStyle}>
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Song Title</span>
-    <input
-      style={getInputStyle(theme)}
-      value={title}
-      onChange={(e) => setTitle(e.target.value)}
-    />
-  </label>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Song Title</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </label>
 
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Artist</span>
-    <input
-      style={getInputStyle(theme)}
-      value={artist}
-      onChange={(e) => setArtist(e.target.value)}
-    />
-  </label>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Artist</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={artist}
+                    onChange={(e) => setArtist(e.target.value)}
+                  />
+                </label>
 
-  {/* NEW ROW: Key + Display Mode */}
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Key</span>
-<select
-  style={{ ...getInputStyle(theme), width: "100%" }}
-      value={songKey}
-      onChange={(e) => setSongKey(e.target.value)}
-    >
-      {KEY_OPTIONS.map((key) => (
-        <option key={key} value={key}>
-          {key}
-        </option>
-      ))}
-    </select>
-  </label>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Key</span>
+                  <select
+                    style={{ ...getInputStyle(theme), width: "100%" }}
+                    value={songKey}
+                    onChange={(e) => setSongKey(e.target.value)}
+                  >
+                    {KEY_OPTIONS.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Display Mode</span>
-    <select
-  style={{ ...getInputStyle(theme), width: "100%" }}
-      value={effectiveDisplayMode}
-      onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
-      disabled={songKey === "#"}
-    >
-      <option value="numbers">Numbers</option>
-      <option value="letters">Letters</option>
-    </select>
-  </label>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Display Mode</span>
+                  <select
+                    style={{ ...getInputStyle(theme), width: "100%" }}
+                    value={effectiveDisplayMode}
+                    onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
+                    disabled={songKey === "#"}
+                  >
+                    <option value="numbers">Numbers</option>
+                    <option value="letters">Letters</option>
+                  </select>
+                </label>
 
-  {/* Bottom row: BPM + Time Signature */}
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>BPM</span>
-    <input
-      style={getInputStyle(theme)}
-      value={bpm}
-      onChange={(e) => setBpm(e.target.value)}
-    />
-  </label>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>BPM</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={bpm}
+                    onChange={(e) => setBpm(e.target.value)}
+                  />
+                </label>
 
-  <label style={{ ...labelBlockStyle, color: theme.text }}>
-    <span>Time Signature</span>
-    <input
-      style={getInputStyle(theme)}
-      value={timeSignature}
-      onChange={(e) => setTimeSignature(e.target.value)}
-    />
-  </label>
-</div>
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Time Signature</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={timeSignature}
+                    onChange={(e) => setTimeSignature(e.target.value)}
+                  />
+                </label>
+
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Chart Size</span>
+                  <select
+                    style={{ ...getInputStyle(theme), width: "100%" }}
+                    value={chartSize}
+                    onChange={(e) => setChartSize(e.target.value as ChartSize)}
+                  >
+                    <option value="regular">Regular</option>
+                    <option value="large">Large</option>
+                  </select>
+                </label>
+
+                <div />
+              </div>
 
               {songKey === "#" && (
                 <p style={{ ...helpTextStyle, marginTop: 12, color: theme.muted }}>
@@ -1560,42 +1608,42 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
               )}
 
               <div style={toolbarStyle(theme)}>
-  <button
-    style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
-    onClick={createNewSong}
-  >
-    New Song
-  </button>
+                <button
+                  style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
+                  onClick={createNewSong}
+                >
+                  New Song
+                </button>
 
-  <button
-    style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
-    onClick={() => {
-  const confirmed = window.confirm(
-    "Are you sure you want to load a song? Unsaved changes will be lost."
-  );
-  if (!confirmed) return;
+                <button
+                  style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
+                  onClick={() => {
+                    const confirmed = window.confirm(
+                      "Are you sure you want to load a song? Unsaved changes will be lost.",
+                    );
+                    if (!confirmed) return;
 
-  fileInputRef.current?.click();
-}}
-  >
-    Load Song
-  </button>
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  Load Song
+                </button>
 
-  <button
-    style={{ ...getPrimaryButtonStyle(), flex: 1 }}
-    onClick={saveSongToFile}
-  >
-    Save Song
-  </button>
+                <button
+                  style={{ ...getPrimaryButtonStyle(), flex: 1 }}
+                  onClick={saveSongToFile}
+                >
+                  Save Song
+                </button>
 
-  <input
-    ref={fileInputRef}
-    type="file"
-    accept=".chordcanvas,.json"
-    style={{ display: "none" }}
-    onChange={handleLoadFile}
-  />
-</div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".chordcanvas,.json"
+                  style={{ display: "none" }}
+                  onChange={handleLoadFile}
+                />
+              </div>
             </div>
 
             <div style={getPanelStyle(theme)}>
@@ -1774,17 +1822,18 @@ const scaledPaperHeight = Math.ceil(geom.pageHeightPx * previewScale);
                             <label style={{ ...labelBlockStyle, color: theme.text }}>
                               <span>Content</span>
                               <textarea
-  style={getTextareaStyle(theme)}
-  value={section.content}
-  placeholder={`Type lyrics here.
+                                style={getTextareaStyle(theme)}
+                                value={section.content}
+                                placeholder={`Type lyrics here.
 Add inline chords like:
 A[1]mazing grace, how [4]sweet the [1]sound`}
-  onChange={(e) => updateSection(section.id, "content", e.target.value)}
-/>
+                                onChange={(e) => updateSection(section.id, "content", e.target.value)}
+                              />
                             </label>
 
                             <p style={{ ...helpTextStyle, color: theme.muted }}>
-                              Use inline chord tags like [1], [5], [6m], [1/3] and dynamic notes like {"{BUILD!!}"}.
+                              Use inline chord tags like [1], [5], [6m], [1/3] and dynamic notes like{" "}
+                              {"{BUILD!!}"}.
                             </p>
                           </>
                         )}
@@ -1805,18 +1854,18 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
 
             <div style={{ display: "flex", justifyContent: "flex-start" }}>
               <button
-  className="floating-print-button"
-  style={{
-    ...getPrimaryButtonStyle(),
-    padding: "14px 18px",
-    fontSize: 15,
-    fontWeight: 700,
-    borderRadius: 14,
-  }}
-  onClick={handlePrint}
->
-  Save as PDF
-</button>
+                className="floating-print-button"
+                style={{
+                  ...getPrimaryButtonStyle(),
+                  padding: "14px 18px",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  borderRadius: 14,
+                }}
+                onClick={handlePrint}
+              >
+                Save as PDF
+              </button>
             </div>
           </div>
 
@@ -1962,10 +2011,9 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
                               page={page}
                               songKey={songKey}
                               effectiveDisplayMode={effectiveDisplayMode}
+                              compact={chartCompact}
                             />
                           </div>
-
-                        
                         </div>
                       </div>
                     ))}
@@ -1975,14 +2023,15 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
             </div>
           </div>
         </div>
-      </div> 
+      </div>
 
       <div className="print-root" style={{ display: "none" }}>
         {documentPages.map((page, pageIndex) => (
-<div
-  key={`print-${pageIndex}`}
-  className={`print-page-dom ${isSinglePrintPage ? "single-print-page" : ""}`}
->            <div
+          <div
+            key={`print-${pageIndex}`}
+            className={`print-page-dom ${isSinglePrintPage ? "single-print-page" : ""}`}
+          >
+            <div
               className="print-paper-dom"
               style={{
                 ...printPaperStyle,
@@ -2009,10 +2058,10 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
                   page={page}
                   songKey={songKey}
                   effectiveDisplayMode={effectiveDisplayMode}
+                  compact={chartCompact}
                   printMode
                 />
               </div>
-
             </div>
           </div>
         ))}
