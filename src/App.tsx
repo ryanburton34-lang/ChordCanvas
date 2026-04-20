@@ -107,6 +107,8 @@ const KEY_OPTIONS = ["#", "A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "F#", 
 const SHARP_SCALE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const FLAT_SCALE = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+const FLAT_KEYS = new Set(["F", "Bb", "Eb", "Ab", "Db"]);
+const SHARP_KEYS = new Set(["D", "G", "A", "E", "B", "F#"]);
 
 const NOTE_TO_SEMITONE: Record<string, number> = {
   C: 0,
@@ -134,6 +136,12 @@ const NOTE_TO_SEMITONE: Record<string, number> = {
 
 function makeId() {
   return Math.random().toString(36).slice(2, 11);
+}
+
+function prefersFlats(key: string) {
+  if (FLAT_KEYS.has(key)) return true;
+  if (SHARP_KEYS.has(key)) return false;
+  return key.includes("b");
 }
 
 function normalizeSections(sections: Section[] | undefined): Section[] {
@@ -219,7 +227,7 @@ function getTemplateSection(type: SectionType): Section {
 function getScaleForKey(key: string) {
   if (key === "#") return [];
   const tonic = NOTE_TO_SEMITONE[key];
-  const useFlats = key.includes("b");
+  const useFlats = prefersFlats(key);
   const source = useFlats ? FLAT_SCALE : SHARP_SCALE;
   return MAJOR_INTERVALS.map((interval) => source[(tonic + interval) % 12]);
 }
@@ -253,7 +261,7 @@ function numberToChord(token: string, key: string): string {
   if (accidental === "b") semitone = (semitone + 11) % 12;
   if (accidental === "#") semitone = (semitone + 1) % 12;
 
-  const useFlats = key.includes("b");
+  const useFlats = prefersFlats(key);
   const source = useFlats ? FLAT_SCALE : SHARP_SCALE;
   return `${source[semitone]}${suffix}`;
 }
@@ -501,9 +509,7 @@ function estimateWrappedLineRows(line: string, columnWidthPx: number, compact: b
 
   segments.forEach((segment) => {
     if (segment.chord) approxWidth += Math.max(18, segment.chord.length * (compact ? 6.6 : 7.6));
-    if (segment.annotation) {
-      approxWidth += Math.max(26, segment.annotation.length * (compact ? 6.6 : 7.6));
-    }
+    if (segment.annotation) approxWidth += Math.max(26, segment.annotation.length * (compact ? 6.6 : 7.6));
     if (segment.lyric) approxWidth += segment.lyric.length * (compact ? 6.9 : 7.9);
   });
 
@@ -813,10 +819,7 @@ function PageSections({
         alignItems: "start",
       }}
     >
-      <div
-        className={printMode ? "print-column-dom" : "print-column"}
-        style={{ display: "grid", gap: PAGE.sectionGapPx }}
-      >
+      <div className={printMode ? "print-column-dom" : "print-column"} style={{ display: "grid", gap: PAGE.sectionGapPx }}>
         {page.left.map((section) => (
           <SectionCard
             key={section.id}
@@ -829,10 +832,7 @@ function PageSections({
         ))}
       </div>
 
-      <div
-        className={printMode ? "print-column-dom" : "print-column"}
-        style={{ display: "grid", gap: PAGE.sectionGapPx }}
-      >
+      <div className={printMode ? "print-column-dom" : "print-column"} style={{ display: "grid", gap: PAGE.sectionGapPx }}>
         {page.right.map((section) => (
           <SectionCard
             key={section.id}
@@ -1182,7 +1182,7 @@ export default function App() {
 
   function createNewSong() {
     const confirmed = window.confirm(
-      "Are you sure you want to create a new song? Unsaved changes will be lost.",
+      "Are you sure you want to create a new song? Unsaved changes will be lost."
     );
     if (!confirmed) return;
 
@@ -1619,7 +1619,7 @@ export default function App() {
                   style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
                   onClick={() => {
                     const confirmed = window.confirm(
-                      "Are you sure you want to load a song? Unsaved changes will be lost.",
+                      "Are you sure you want to load a song? Unsaved changes will be lost."
                     );
                     if (!confirmed) return;
 
@@ -1832,8 +1832,7 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
                             </label>
 
                             <p style={{ ...helpTextStyle, color: theme.muted }}>
-                              Use inline chord tags like [1], [5], [6m], [1/3] and dynamic notes like{" "}
-                              {"{BUILD!!}"}.
+                              Use inline chord tags like [1], [5], [6m], [1/3] and dynamic notes like {"{BUILD!!}"}.
                             </p>
                           </>
                         )}
@@ -2023,7 +2022,7 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
             </div>
           </div>
         </div>
-      </div>
+      </div> 
 
       <div className="print-root" style={{ display: "none" }}>
         {documentPages.map((page, pageIndex) => (
