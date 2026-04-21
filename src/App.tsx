@@ -858,10 +858,12 @@ function sectionTitleToFlowToken(title: string): string {
   const patterns: Array<[RegExp, (n?: string) => string]> = [
     [/^INTRO(?:\s+(\d+))?$/, (n) => `INTRO${n ?? ""}`],
     [/^VERSE(?:\s+(\d+))?$/, (n) => (n ? `V${n}` : "VERSE")],
+    [/^PRE-CHORUS(?:\s+(\d+))?$/, (n) => `PC${n ?? ""}`],
     [/^CHORUS(?:\s+(\d+))?$/, (n) => `CH${n ?? ""}`],
     [/^BRIDGE(?:\s+(\d+))?$/, (n) => (n ? `BR${n}` : "BR")],
     [/^INSTRUMENTAL(?:\s+(\d+))?$/, (n) => `INST${n ?? ""}`],
     [/^OUTRO(?:\s+(\d+))?$/, (n) => `OUT${n ?? ""}`],
+    [/^ENDING(?:\s+(\d+))?$/, (n) => `END${n ?? ""}`],
     [/^TAG(?:\s+(\d+))?$/, (n) => `TAG${n ?? ""}`],
     [/^TURNAROUND(?:\s+(\d+))?$/, (n) => `TURN${n ?? ""}`],
     [/^TURN(?:\s+(\d+))?$/, (n) => `TURN${n ?? ""}`],
