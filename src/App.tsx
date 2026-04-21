@@ -21,7 +21,8 @@ type Segment = {
 type SongData = {
   title: string;
   artist: string;
-  key: string;
+  originalKey: string;
+  chartKey: string;
   bpm: string;
   timeSignature: string;
   displayMode: DisplayMode;
@@ -109,6 +110,7 @@ const FLAT_SCALE = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", 
 const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
 const FLAT_KEYS = new Set(["F", "Bb", "Eb", "Ab", "Db"]);
 const SHARP_KEYS = new Set(["D", "G", "A", "E", "B", "F#"]);
+const LETTER_ORDER = ["C", "D", "E", "F", "G", "A", "B"];
 
 const NOTE_TO_SEMITONE: Record<string, number> = {
   C: 0,
@@ -142,6 +144,10 @@ function prefersFlats(key: string) {
   if (FLAT_KEYS.has(key)) return true;
   if (SHARP_KEYS.has(key)) return false;
   return key.includes("b");
+}
+
+function mod(n: number, m: number) {
+  return ((n % m) + m) % m;
 }
 
 function normalizeSections(sections: Section[] | undefined): Section[] {
@@ -258,8 +264,8 @@ function numberToChord(token: string, key: string): string {
   const baseNote = scale[degree - 1];
   let semitone = NOTE_TO_SEMITONE[baseNote];
 
-  if (accidental === "b") semitone = (semitone + 11) % 12;
-  if (accidental === "#") semitone = (semitone + 1) % 12;
+  if (accidental === "b") semitone = mod(semitone - 1, 12);
+  if (accidental === "#") semitone = mod(semitone + 1, 12);
 
   const useFlats = prefersFlats(key);
   const source = useFlats ? FLAT_SCALE : SHARP_SCALE;
@@ -340,8 +346,107 @@ function getChordTextStyle(compact: boolean): React.CSSProperties {
   };
 }
 
-function renderBarLine(line: string, key: string, displayMode: DisplayMode, compact: boolean) {
-  const forceNumbersOnly = key === "#";
+function isNumericChordToken(token: string) {
+  const trimmed = token.trim();
+  if (!trimmed) return false;
+
+  return trimmed.split("/").every((part) => /^(b|#)?[1-7](.*)?$/i.test(part.trim()));
+}
+
+function parseChordComponent(token: string) {
+  const trimmed = token.trim();
+  const match = trimmed.match(/^([A-Ga-g])([b#]?)(.*)$/);
+  if (!match) return null;
+
+  const letter = match[1].toUpperCase();
+  const accidental = match[2] || "";
+  const suffix = match[3] || "";
+
+  return {
+    noteName: `${letter}${accidental}`,
+    letter,
+    accidental,
+    suffix,
+  };
+}
+
+function getDegreeFromLetterDistance(rootLetter: string, tonicLetter: string) {
+  const rootIndex = LETTER_ORDER.indexOf(rootLetter);
+  const tonicIndex = LETTER_ORDER.indexOf(tonicLetter);
+  if (rootIndex === -1 || tonicIndex === -1) return null;
+  return mod(rootIndex - tonicIndex, 7) + 1;
+}
+
+function chordComponentToNashville(componentToken: string, originalKey: string): string | null {
+  const tonic = parseChordComponent(originalKey);
+  const root = parseChordComponent(componentToken);
+
+  if (!tonic || !root) return null;
+
+  const tonicSemitone = NOTE_TO_SEMITONE[tonic.noteName];
+  const rootSemitone = NOTE_TO_SEMITONE[root.noteName];
+
+  if (tonicSemitone === undefined || rootSemitone === undefined) return null;
+
+  const degree = getDegreeFromLetterDistance(root.letter, tonic.letter);
+  if (!degree) return null;
+
+  const expectedSemitone = MAJOR_INTERVALS[degree - 1];
+  const actualSemitone = mod(rootSemitone - tonicSemitone, 12);
+
+  let diff = actualSemitone - expectedSemitone;
+  if (diff > 6) diff -= 12;
+  if (diff < -6) diff += 12;
+
+  let accidentalPrefix = "";
+  if (diff === -1) accidentalPrefix = "b";
+  else if (diff === 0) accidentalPrefix = "";
+  else if (diff === 1) accidentalPrefix = "#";
+  else return null;
+
+  return `${accidentalPrefix}${degree}${root.suffix}`;
+}
+
+function chordTokenToNashville(token: string, originalKey: string): string | null {
+  const trimmed = token.trim();
+  if (!trimmed) return trimmed;
+
+  if (isNumericChordToken(trimmed)) return trimmed;
+  if (originalKey === "#") return null;
+
+  const parts = trimmed.split("/");
+  const converted = parts.map((part) => chordComponentToNashville(part, originalKey));
+  if (converted.some((part) => !part)) return null;
+
+  return converted.join("/");
+}
+
+function formatChordToken(
+  token: string,
+  originalKey: string,
+  chartKey: string,
+  displayMode: DisplayMode,
+): string {
+  const trimmed = token.trim();
+  if (!trimmed) return trimmed;
+
+  const nashville = chordTokenToNashville(trimmed, originalKey);
+
+  if (displayMode === "numbers" || chartKey === "#") {
+    return nashville ?? trimmed;
+  }
+
+  if (!nashville) return trimmed;
+  return numberToChord(nashville, chartKey);
+}
+
+function renderBarLine(
+  line: string,
+  originalKey: string,
+  chartKey: string,
+  displayMode: DisplayMode,
+  compact: boolean,
+) {
   const parts = line.split(/(\[[^\]]+\]|<>)/g);
 
   return (
@@ -372,8 +477,7 @@ function renderBarLine(line: string, key: string, displayMode: DisplayMode, comp
         const chordMatch = part.match(/^\[([^\]]+)\]$/);
         if (chordMatch) {
           const token = chordMatch[1].trim();
-          const shown =
-            forceNumbersOnly ? token : displayMode === "letters" ? numberToChord(token, key) : token;
+          const shown = formatChordToken(token, originalKey, chartKey, displayMode);
 
           return (
             <span key={index} style={getChordTextStyle(compact)}>
@@ -388,13 +492,18 @@ function renderBarLine(line: string, key: string, displayMode: DisplayMode, comp
   );
 }
 
-function renderInlineLine(line: string, key: string, displayMode: DisplayMode, compact: boolean) {
+function renderInlineLine(
+  line: string,
+  originalKey: string,
+  chartKey: string,
+  displayMode: DisplayMode,
+  compact: boolean,
+) {
   if (isBarLineContent(line)) {
-    return renderBarLine(line, key, displayMode, compact);
+    return renderBarLine(line, originalKey, chartKey, displayMode, compact);
   }
 
   const segments = parseInlineInput(line);
-  const forceNumbersOnly = key === "#";
   const lineHasTopItems = segments.some((segment) => !!segment.chord || !!segment.annotation);
   const topPad = lineHasTopItems ? (compact ? 18 : 22) : 0;
   const minHeight = lineHasTopItems ? (compact ? 26 : 32) : undefined;
@@ -410,11 +519,7 @@ function renderInlineLine(line: string, key: string, displayMode: DisplayMode, c
     >
       {segments.map((segment, index) => {
         const shownChord = segment.chord
-          ? forceNumbersOnly
-            ? segment.chord
-            : displayMode === "letters"
-              ? numberToChord(segment.chord, key)
-              : segment.chord
+          ? formatChordToken(segment.chord, originalKey, chartKey, displayMode)
           : undefined;
 
         return (
@@ -623,7 +728,7 @@ type HeaderBlockProps = {
   artist: string;
   bpm: string;
   timeSignature: string;
-  songKey: string;
+  chartKey: string;
   roadmapItems: string[];
   printMode?: boolean;
 };
@@ -633,7 +738,7 @@ function HeaderBlock({
   artist,
   bpm,
   timeSignature,
-  songKey,
+  chartKey,
   roadmapItems,
   printMode = false,
 }: HeaderBlockProps) {
@@ -691,7 +796,7 @@ function HeaderBlock({
           fontSize: 13,
         }}
       >
-        <strong>Key:</strong> {songKey}
+        <strong>Key:</strong> {chartKey}
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
@@ -707,7 +812,8 @@ function HeaderBlock({
 
 type SectionCardProps = {
   section: Section;
-  songKey: string;
+  originalKey: string;
+  chartKey: string;
   effectiveDisplayMode: DisplayMode;
   compact?: boolean;
   printMode?: boolean;
@@ -715,7 +821,8 @@ type SectionCardProps = {
 
 function SectionCard({
   section,
-  songKey,
+  originalKey,
+  chartKey,
   effectiveDisplayMode,
   compact = true,
   printMode = false,
@@ -785,7 +892,7 @@ function SectionCard({
                 color: "#111827",
               }}
             >
-              {renderInlineLine(line, songKey, effectiveDisplayMode, compact)}
+              {renderInlineLine(line, originalKey, chartKey, effectiveDisplayMode, compact)}
             </div>
           ))}
         </div>
@@ -796,7 +903,8 @@ function SectionCard({
 
 type PageSectionsProps = {
   page: PrintPage;
-  songKey: string;
+  originalKey: string;
+  chartKey: string;
   effectiveDisplayMode: DisplayMode;
   compact: boolean;
   printMode?: boolean;
@@ -804,7 +912,8 @@ type PageSectionsProps = {
 
 function PageSections({
   page,
-  songKey,
+  originalKey,
+  chartKey,
   effectiveDisplayMode,
   compact,
   printMode = false,
@@ -824,7 +933,8 @@ function PageSections({
           <SectionCard
             key={section.id}
             section={section}
-            songKey={songKey}
+            originalKey={originalKey}
+            chartKey={chartKey}
             effectiveDisplayMode={effectiveDisplayMode}
             compact={compact}
             printMode={printMode}
@@ -837,7 +947,8 @@ function PageSections({
           <SectionCard
             key={section.id}
             section={section}
-            songKey={songKey}
+            originalKey={originalKey}
+            chartKey={chartKey}
             effectiveDisplayMode={effectiveDisplayMode}
             compact={compact}
             printMode={printMode}
@@ -909,7 +1020,8 @@ function buildRoadmapFromSections(sections: Section[]): string {
 export default function App() {
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
-  const [songKey, setSongKey] = useState("#");
+  const [originalKey, setOriginalKey] = useState("#");
+  const [chartKey, setChartKey] = useState("#");
   const [bpm, setBpm] = useState("");
   const [timeSignature, setTimeSignature] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("numbers");
@@ -931,7 +1043,7 @@ export default function App() {
   const measureSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const effectiveDisplayMode: DisplayMode = songKey === "#" ? "numbers" : displayMode;
+  const effectiveDisplayMode: DisplayMode = chartKey === "#" ? "numbers" : displayMode;
   const geom = useMemo(() => getPageGeometry(), []);
   const autoRoadmap = useMemo(() => buildRoadmapFromSections(sections), [sections]);
   const roadmapItems = useMemo(() => splitRoadmap(autoRoadmap), [autoRoadmap]);
@@ -1042,7 +1154,8 @@ export default function App() {
     artist,
     bpm,
     timeSignature,
-    songKey,
+    originalKey,
+    chartKey,
     roadmapItems.length,
     effectiveDisplayMode,
     chartSize,
@@ -1067,7 +1180,8 @@ export default function App() {
     return {
       title,
       artist,
-      key: songKey,
+      originalKey,
+      chartKey,
       bpm,
       timeSignature,
       displayMode: effectiveDisplayMode,
@@ -1076,12 +1190,15 @@ export default function App() {
     };
   }
 
-  function loadSongIntoEditor(song: SongData) {
+  function loadSongIntoEditor(song: Partial<SongData> & { key?: string }) {
     const normalizedSections = normalizeSections(song.sections);
+
+    const fallbackKey = song.key ?? "#";
 
     setTitle(song.title ?? "");
     setArtist(song.artist ?? "");
-    setSongKey(song.key ?? "#");
+    setOriginalKey(song.originalKey ?? fallbackKey);
+    setChartKey(song.chartKey ?? fallbackKey);
     setBpm(song.bpm ?? "");
     setTimeSignature(song.timeSignature ?? "");
     setDisplayMode(song.displayMode ?? "numbers");
@@ -1191,7 +1308,8 @@ export default function App() {
     const blank: SongData = {
       title: "",
       artist: "",
-      key: "#",
+      originalKey: "#",
+      chartKey: "#",
       bpm: "",
       timeSignature: "",
       displayMode: "numbers",
@@ -1205,7 +1323,7 @@ export default function App() {
   function saveSongToFile() {
     const payload = {
       format: "chordcanvas-song",
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       song: getCurrentSongData(),
     };
@@ -1234,17 +1352,18 @@ export default function App() {
       const parsed = JSON.parse(text);
 
       const song = parsed?.format === "chordcanvas-song" && parsed?.song ? parsed.song : parsed;
-      const normalizedSections = normalizeSections(song?.sections);
 
       loadSongIntoEditor({
         title: song?.title ?? "",
         artist: song?.artist ?? "",
-        key: song?.key ?? "#",
+        originalKey: song?.originalKey,
+        chartKey: song?.chartKey,
+        key: song?.key,
         bpm: song?.bpm ?? "",
         timeSignature: song?.timeSignature ?? "",
         displayMode: song?.displayMode ?? "numbers",
         chartSize: song?.chartSize ?? "regular",
-        sections: normalizedSections,
+        sections: normalizeSections(song?.sections),
       });
     } catch (error) {
       console.error("Failed to load file:", error);
@@ -1418,7 +1537,7 @@ export default function App() {
               artist={artist}
               bpm={bpm}
               timeSignature={timeSignature}
-              songKey={songKey}
+              chartKey={chartKey}
               roadmapItems={roadmapItems}
             />
           </div>
@@ -1441,7 +1560,8 @@ export default function App() {
               >
                 <SectionCard
                   section={section}
-                  songKey={songKey}
+                  originalKey={originalKey}
+                  chartKey={chartKey}
                   effectiveDisplayMode={effectiveDisplayMode}
                   compact={chartCompact}
                   printMode
@@ -1543,11 +1663,26 @@ export default function App() {
                 </label>
 
                 <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Key</span>
+                  <span>Original Key</span>
                   <select
                     style={{ ...getInputStyle(theme), width: "100%" }}
-                    value={songKey}
-                    onChange={(e) => setSongKey(e.target.value)}
+                    value={originalKey}
+                    onChange={(e) => setOriginalKey(e.target.value)}
+                  >
+                    {KEY_OPTIONS.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Chart Key</span>
+                  <select
+                    style={{ ...getInputStyle(theme), width: "100%" }}
+                    value={chartKey}
+                    onChange={(e) => setChartKey(e.target.value)}
                   >
                     {KEY_OPTIONS.map((key) => (
                       <option key={key} value={key}>
@@ -1563,10 +1698,22 @@ export default function App() {
                     style={{ ...getInputStyle(theme), width: "100%" }}
                     value={effectiveDisplayMode}
                     onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
-                    disabled={songKey === "#"}
+                    disabled={chartKey === "#"}
                   >
                     <option value="numbers">Numbers</option>
                     <option value="letters">Letters</option>
+                  </select>
+                </label>
+
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Chart Size</span>
+                  <select
+                    style={{ ...getInputStyle(theme), width: "100%" }}
+                    value={chartSize}
+                    onChange={(e) => setChartSize(e.target.value as ChartSize)}
+                  >
+                    <option value="regular">Regular</option>
+                    <option value="large">Large</option>
                   </select>
                 </label>
 
@@ -1587,27 +1734,17 @@ export default function App() {
                     onChange={(e) => setTimeSignature(e.target.value)}
                   />
                 </label>
-
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Chart Size</span>
-                  <select
-                    style={{ ...getInputStyle(theme), width: "100%" }}
-                    value={chartSize}
-                    onChange={(e) => setChartSize(e.target.value as ChartSize)}
-                  >
-                    <option value="regular">Regular</option>
-                    <option value="large">Large</option>
-                  </select>
-                </label>
-
-                <div />
               </div>
 
-              {songKey === "#" && (
+              {chartKey === "#" && (
                 <p style={{ ...helpTextStyle, marginTop: 12, color: theme.muted }}>
-                  “#” key mode shows Nashville Numbers only.
+                  “#” chart key mode shows Nashville Numbers only.
                 </p>
               )}
+
+              <p style={{ ...helpTextStyle, marginTop: 12, color: theme.muted }}>
+                Use <strong>Original Key</strong> for charts typed with letter chords. Use <strong>Original Key = #</strong> for charts typed directly in Nashville Numbers.
+              </p>
 
               <div style={toolbarStyle(theme)}>
                 <button
@@ -1827,14 +1964,16 @@ export default function App() {
                                 style={getTextareaStyle(theme)}
                                 value={section.content}
                                 placeholder={`Type lyrics here.
-Add inline chords like:
-A[1]mazing grace, how [4]sweet the [1]sound`}
+Use Nashville or letter chords like:
+A[1]mazing grace, how [4]sweet the [1]sound
+or
+A[G]mazing grace, how [C]sweet the [G]sound`}
                                 onChange={(e) => updateSection(section.id, "content", e.target.value)}
                               />
                             </label>
 
                             <p style={{ ...helpTextStyle, color: theme.muted }}>
-                              Use inline chord tags like [1], [5], [6m], [1/3] and dynamic notes like {"{BUILD!!}"}.
+                              Use inline chord tags like [1], [5], [6m], [b7], [#4m], [1/3], [D/F#], [Bb], and dynamic notes like {"{BUILD!!}"}.
                             </p>
                           </>
                         )}
@@ -2002,7 +2141,7 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
                               artist={artist}
                               bpm={bpm}
                               timeSignature={timeSignature}
-                              songKey={songKey}
+                              chartKey={chartKey}
                               roadmapItems={roadmapItems}
                             />
                           )}
@@ -2010,7 +2149,8 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
                           <div style={{ marginTop: page.isFirstPage ? PAGE.firstPageExtraTopPx : 0 }}>
                             <PageSections
                               page={page}
-                              songKey={songKey}
+                              originalKey={originalKey}
+                              chartKey={chartKey}
                               effectiveDisplayMode={effectiveDisplayMode}
                               compact={chartCompact}
                             />
@@ -2024,7 +2164,7 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
             </div>
           </div>
         </div>
-      </div> 
+      </div>
 
       <div className="print-root" style={{ display: "none" }}>
         {documentPages.map((page, pageIndex) => (
@@ -2048,7 +2188,7 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
                   artist={artist}
                   bpm={bpm}
                   timeSignature={timeSignature}
-                  songKey={songKey}
+                  chartKey={chartKey}
                   roadmapItems={roadmapItems}
                   printMode
                 />
@@ -2057,7 +2197,8 @@ A[1]mazing grace, how [4]sweet the [1]sound`}
               <div style={{ marginTop: page.isFirstPage ? PAGE.firstPageExtraTopPx : 0 }}>
                 <PageSections
                   page={page}
-                  songKey={songKey}
+                  originalKey={originalKey}
+                  chartKey={chartKey}
                   effectiveDisplayMode={effectiveDisplayMode}
                   compact={chartCompact}
                   printMode
