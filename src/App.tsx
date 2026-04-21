@@ -1,6 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-type DisplayMode = "numbers" | "letters";
 type ChartSize = "regular" | "large";
 type SectionType = "INTRO" | "VERSE" | "CHORUS" | "TURN" | "BRIDGE" | "INSTRUMENTAL" | "OUTRO";
 
@@ -21,11 +20,11 @@ type Segment = {
 type SongData = {
   title: string;
   artist: string;
+  chartCreator: string;
   originalKey: string;
   chartKey: string;
   bpm: string;
   timeSignature: string;
-  displayMode: DisplayMode;
   chartSize: ChartSize;
   sections: Section[];
 };
@@ -72,6 +71,7 @@ const PAGE = {
 const PAGINATION = {
   pageSafetyBufferPx: 8,
   headerFallbackHeightPx: 132,
+  footerReservePx: 26,
 };
 
 const BRAND = {
@@ -349,7 +349,6 @@ function getChordTextStyle(compact: boolean): React.CSSProperties {
 function isNumericChordToken(token: string) {
   const trimmed = token.trim();
   if (!trimmed) return false;
-
   return trimmed.split("/").every((part) => /^(b|#)?[1-7](.*)?$/i.test(part.trim()));
 }
 
@@ -421,18 +420,13 @@ function chordTokenToNashville(token: string, originalKey: string): string | nul
   return converted.join("/");
 }
 
-function formatChordToken(
-  token: string,
-  originalKey: string,
-  chartKey: string,
-  displayMode: DisplayMode,
-): string {
+function formatChordToken(token: string, originalKey: string, chartKey: string): string {
   const trimmed = token.trim();
   if (!trimmed) return trimmed;
 
   const nashville = chordTokenToNashville(trimmed, originalKey);
 
-  if (displayMode === "numbers" || chartKey === "#") {
+  if (chartKey === "#") {
     return nashville ?? trimmed;
   }
 
@@ -444,7 +438,6 @@ function renderBarLine(
   line: string,
   originalKey: string,
   chartKey: string,
-  displayMode: DisplayMode,
   compact: boolean,
 ) {
   const parts = line.split(/(\[[^\]]+\]|<>)/g);
@@ -477,7 +470,7 @@ function renderBarLine(
         const chordMatch = part.match(/^\[([^\]]+)\]$/);
         if (chordMatch) {
           const token = chordMatch[1].trim();
-          const shown = formatChordToken(token, originalKey, chartKey, displayMode);
+          const shown = formatChordToken(token, originalKey, chartKey);
 
           return (
             <span key={index} style={getChordTextStyle(compact)}>
@@ -496,11 +489,10 @@ function renderInlineLine(
   line: string,
   originalKey: string,
   chartKey: string,
-  displayMode: DisplayMode,
   compact: boolean,
 ) {
   if (isBarLineContent(line)) {
-    return renderBarLine(line, originalKey, chartKey, displayMode, compact);
+    return renderBarLine(line, originalKey, chartKey, compact);
   }
 
   const segments = parseInlineInput(line);
@@ -519,7 +511,7 @@ function renderInlineLine(
     >
       {segments.map((segment, index) => {
         const shownChord = segment.chord
-          ? formatChordToken(segment.chord, originalKey, chartKey, displayMode)
+          ? formatChordToken(segment.chord, originalKey, chartKey)
           : undefined;
 
         return (
@@ -656,7 +648,7 @@ function paginateSectionsWithHeights(
   compact: boolean,
 ): PrintPage[] {
   const pages: PrintPage[] = [];
-  const footerReserve = 0;
+const footerReserve = PAGINATION.footerReservePx;
 
   const firstPageColumnLimit =
     geom.contentHeightPx -
@@ -810,11 +802,33 @@ function HeaderBlock({
   );
 }
 
+type FooterBlockProps = {
+  chartCreator: string;
+};
+
+function FooterBlock({ chartCreator }: FooterBlockProps) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        fontSize: 11,
+        color: "#5B6B79",
+        borderTop: "1px solid #D1D5DB",
+        paddingTop: 6,
+      }}
+    >
+      <div>Made with ChordCanvas</div>
+      <div>{chartCreator ? `Chart Created by ${chartCreator}` : "Chart Created by"}</div>
+    </div>
+  );
+}
+
 type SectionCardProps = {
   section: Section;
   originalKey: string;
   chartKey: string;
-  effectiveDisplayMode: DisplayMode;
   compact?: boolean;
   printMode?: boolean;
 };
@@ -823,7 +837,6 @@ function SectionCard({
   section,
   originalKey,
   chartKey,
-  effectiveDisplayMode,
   compact = true,
   printMode = false,
 }: SectionCardProps) {
@@ -892,7 +905,7 @@ function SectionCard({
                 color: "#111827",
               }}
             >
-              {renderInlineLine(line, originalKey, chartKey, effectiveDisplayMode, compact)}
+              {renderInlineLine(line, originalKey, chartKey, compact)}
             </div>
           ))}
         </div>
@@ -905,7 +918,6 @@ type PageSectionsProps = {
   page: PrintPage;
   originalKey: string;
   chartKey: string;
-  effectiveDisplayMode: DisplayMode;
   compact: boolean;
   printMode?: boolean;
 };
@@ -914,7 +926,6 @@ function PageSections({
   page,
   originalKey,
   chartKey,
-  effectiveDisplayMode,
   compact,
   printMode = false,
 }: PageSectionsProps) {
@@ -935,7 +946,6 @@ function PageSections({
             section={section}
             originalKey={originalKey}
             chartKey={chartKey}
-            effectiveDisplayMode={effectiveDisplayMode}
             compact={compact}
             printMode={printMode}
           />
@@ -949,7 +959,6 @@ function PageSections({
             section={section}
             originalKey={originalKey}
             chartKey={chartKey}
-            effectiveDisplayMode={effectiveDisplayMode}
             compact={compact}
             printMode={printMode}
           />
@@ -1020,11 +1029,11 @@ function buildRoadmapFromSections(sections: Section[]): string {
 export default function App() {
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
+  const [chartCreator, setChartCreator] = useState("");
   const [originalKey, setOriginalKey] = useState("#");
   const [chartKey, setChartKey] = useState("#");
   const [bpm, setBpm] = useState("");
   const [timeSignature, setTimeSignature] = useState("");
-  const [displayMode, setDisplayMode] = useState<DisplayMode>("numbers");
   const [chartSize, setChartSize] = useState<ChartSize>("regular");
   const [sections, setSections] = useState<Section[]>([]);
   const [previewScale, setPreviewScale] = useState(0.65);
@@ -1043,7 +1052,6 @@ export default function App() {
   const measureSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const effectiveDisplayMode: DisplayMode = chartKey === "#" ? "numbers" : displayMode;
   const geom = useMemo(() => getPageGeometry(), []);
   const autoRoadmap = useMemo(() => buildRoadmapFromSections(sections), [sections]);
   const roadmapItems = useMemo(() => splitRoadmap(autoRoadmap), [autoRoadmap]);
@@ -1152,12 +1160,12 @@ export default function App() {
     sections,
     title,
     artist,
+    chartCreator,
     bpm,
     timeSignature,
     originalKey,
     chartKey,
     roadmapItems.length,
-    effectiveDisplayMode,
     chartSize,
   ]);
 
@@ -1180,11 +1188,11 @@ export default function App() {
     return {
       title,
       artist,
+      chartCreator,
       originalKey,
       chartKey,
       bpm,
       timeSignature,
-      displayMode: effectiveDisplayMode,
       chartSize,
       sections,
     };
@@ -1192,16 +1200,15 @@ export default function App() {
 
   function loadSongIntoEditor(song: Partial<SongData> & { key?: string }) {
     const normalizedSections = normalizeSections(song.sections);
-
     const fallbackKey = song.key ?? "#";
 
     setTitle(song.title ?? "");
     setArtist(song.artist ?? "");
+    setChartCreator(song.chartCreator ?? "");
     setOriginalKey(song.originalKey ?? fallbackKey);
     setChartKey(song.chartKey ?? fallbackKey);
     setBpm(song.bpm ?? "");
     setTimeSignature(song.timeSignature ?? "");
-    setDisplayMode(song.displayMode ?? "numbers");
     setChartSize(song.chartSize ?? "regular");
     setSections(normalizedSections);
     setCollapsedSections(
@@ -1308,11 +1315,11 @@ export default function App() {
     const blank: SongData = {
       title: "",
       artist: "",
+      chartCreator: "",
       originalKey: "#",
       chartKey: "#",
       bpm: "",
       timeSignature: "",
-      displayMode: "numbers",
       chartSize: "regular",
       sections: [],
     };
@@ -1323,7 +1330,7 @@ export default function App() {
   function saveSongToFile() {
     const payload = {
       format: "chordcanvas-song",
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       song: getCurrentSongData(),
     };
@@ -1356,12 +1363,12 @@ export default function App() {
       loadSongIntoEditor({
         title: song?.title ?? "",
         artist: song?.artist ?? "",
+        chartCreator: song?.chartCreator ?? "",
         originalKey: song?.originalKey,
         chartKey: song?.chartKey,
         key: song?.key,
         bpm: song?.bpm ?? "",
         timeSignature: song?.timeSignature ?? "",
-        displayMode: song?.displayMode ?? "numbers",
         chartSize: song?.chartSize ?? "regular",
         sections: normalizeSections(song?.sections),
       });
@@ -1562,7 +1569,6 @@ export default function App() {
                   section={section}
                   originalKey={originalKey}
                   chartKey={chartKey}
-                  effectiveDisplayMode={effectiveDisplayMode}
                   compact={chartCompact}
                   printMode
                 />
@@ -1663,6 +1669,24 @@ export default function App() {
                 </label>
 
                 <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>BPM</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={bpm}
+                    onChange={(e) => setBpm(e.target.value)}
+                  />
+                </label>
+
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
+                  <span>Time Signature</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={timeSignature}
+                    onChange={(e) => setTimeSignature(e.target.value)}
+                  />
+                </label>
+
+                <label style={{ ...labelBlockStyle, color: theme.text }}>
                   <span>Original Key</span>
                   <select
                     style={{ ...getInputStyle(theme), width: "100%" }}
@@ -1693,16 +1717,12 @@ export default function App() {
                 </label>
 
                 <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Display Mode</span>
-                  <select
-                    style={{ ...getInputStyle(theme), width: "100%" }}
-                    value={effectiveDisplayMode}
-                    onChange={(e) => setDisplayMode(e.target.value as DisplayMode)}
-                    disabled={chartKey === "#"}
-                  >
-                    <option value="numbers">Numbers</option>
-                    <option value="letters">Letters</option>
-                  </select>
+                  <span>Chart Creator</span>
+                  <input
+                    style={getInputStyle(theme)}
+                    value={chartCreator}
+                    onChange={(e) => setChartCreator(e.target.value)}
+                  />
                 </label>
 
                 <label style={{ ...labelBlockStyle, color: theme.text }}>
@@ -1715,24 +1735,6 @@ export default function App() {
                     <option value="regular">Regular</option>
                     <option value="large">Large</option>
                   </select>
-                </label>
-
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>BPM</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={bpm}
-                    onChange={(e) => setBpm(e.target.value)}
-                  />
-                </label>
-
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Time Signature</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={timeSignature}
-                    onChange={(e) => setTimeSignature(e.target.value)}
-                  />
                 </label>
               </div>
 
@@ -2146,15 +2148,30 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
                             />
                           )}
 
-                          <div style={{ marginTop: page.isFirstPage ? PAGE.firstPageExtraTopPx : 0 }}>
-                            <PageSections
-                              page={page}
-                              originalKey={originalKey}
-                              chartKey={chartKey}
-                              effectiveDisplayMode={effectiveDisplayMode}
-                              compact={chartCompact}
-                            />
-                          </div>
+                          <div
+  style={{
+    marginTop: page.isFirstPage ? PAGE.firstPageExtraTopPx : 0,
+    paddingBottom: PAGINATION.footerReservePx,
+  }}
+>
+  <PageSections
+    page={page}
+    originalKey={originalKey}
+    chartKey={chartKey}
+    compact={chartCompact}
+  />
+</div>
+
+<div
+  style={{
+    position: "absolute",
+    left: `${PAGE.marginIn}in`,
+    right: `${PAGE.marginIn}in`,
+    bottom: `${PAGE.marginIn}in`,
+  }}
+>
+  <FooterBlock chartCreator={chartCreator} />
+</div>
                         </div>
                       </div>
                     ))}
@@ -2194,16 +2211,31 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
                 />
               )}
 
-              <div style={{ marginTop: page.isFirstPage ? PAGE.firstPageExtraTopPx : 0 }}>
-                <PageSections
-                  page={page}
-                  originalKey={originalKey}
-                  chartKey={chartKey}
-                  effectiveDisplayMode={effectiveDisplayMode}
-                  compact={chartCompact}
-                  printMode
-                />
-              </div>
+              <div
+  style={{
+    marginTop: page.isFirstPage ? PAGE.firstPageExtraTopPx : 0,
+    paddingBottom: PAGINATION.footerReservePx,
+  }}
+>
+  <PageSections
+    page={page}
+    originalKey={originalKey}
+    chartKey={chartKey}
+    compact={chartCompact}
+    printMode
+  />
+</div>
+
+<div
+  style={{
+    position: "absolute",
+    left: `${PAGE.marginIn}in`,
+    right: `${PAGE.marginIn}in`,
+    bottom: `${PAGE.marginIn}in`,
+  }}
+>
+  <FooterBlock chartCreator={chartCreator} />
+</div>
             </div>
           </div>
         ))}
