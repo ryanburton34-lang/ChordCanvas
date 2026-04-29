@@ -56,7 +56,8 @@ type ThemeTokens = {
   toggleBg: string;
 };
 
-const LOGO_FULL = "/chordcanvas-logo-dark.png";
+const LOGO_FULL = "./chordcanvas-logo-dark.png";
+const AUTOSAVE_KEY = "chordcanvas_autosave_v1";
 
 const PAGE = {
   widthIn: 8.5,
@@ -1045,6 +1046,8 @@ export default function App() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number>(PAGINATION.headerFallbackHeightPx);
   const [measuredSectionHeights, setMeasuredSectionHeights] = useState<Record<string, number>>({});
+  const [autosaveReady, setAutosaveReady] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const editorColumnRef = useRef<HTMLDivElement | null>(null);
   const sectionTitleInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -1057,6 +1060,50 @@ export default function App() {
   const roadmapItems = useMemo(() => splitRoadmap(autoRoadmap), [autoRoadmap]);
   const theme = THEME;
   const chartCompact = chartSize === "regular";
+  useEffect(() => {
+  const saved = localStorage.getItem(AUTOSAVE_KEY);
+
+  if (!saved) {
+    setAutosaveReady(true);
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+    loadSongIntoEditor(parsed);
+  } catch (error) {
+    console.error("Failed to load autosave:", error);
+  } finally {
+    setAutosaveReady(true);
+  }
+}, []);
+useEffect(() => {
+  if (!autosaveReady) return;
+
+  setSaveStatus("saving");
+
+  const t = setTimeout(() => {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(getCurrentSongData()));
+    setSaveStatus("saved");
+
+    setTimeout(() => setSaveStatus("idle"), 1000);
+  }, 250);
+
+  return () => clearTimeout(t);
+}, [
+
+
+  autosaveReady,
+  title,
+  artist,
+  chartCreator,
+  originalKey,
+  chartKey,
+  bpm,
+  timeSignature,
+  chartSize,
+  sections,
+]);
 
   useEffect(() => {
     function handleAfterPrint() {
@@ -1311,6 +1358,7 @@ export default function App() {
       "Are you sure you want to create a new song? Unsaved changes will be lost."
     );
     if (!confirmed) return;
+localStorage.removeItem(AUTOSAVE_KEY);
 
     const blank: SongData = {
       title: "",
@@ -1593,13 +1641,15 @@ export default function App() {
           <div
             ref={editorColumnRef}
             className="editor-column"
-            style={{
-              display: "grid",
-              gap: 20,
-              overflowY: "auto",
-              minHeight: 0,
-              paddingBottom: 8,
-            }}
+style={{
+  display: "grid",
+  gap: 20,
+  overflowY: "auto",
+  overflowX: "hidden",
+  minHeight: 0,
+  minWidth: 0,
+  paddingBottom: 8,
+}}
             onDragOver={(e) => {
               if (draggingSectionId) {
                 e.preventDefault();
@@ -1749,6 +1799,10 @@ export default function App() {
               </p>
 
               <div style={toolbarStyle(theme)}>
+                <div style={{ fontSize: 12, color: theme.muted, marginBottom: 6 }}>
+  {saveStatus === "saving" && "Saving…"}
+  {saveStatus === "saved" && "✓ Saved"}
+</div>
                 <button
                   style={{ ...getSecondaryButtonStyle(theme), flex: 1 }}
                   onClick={createNewSong}
@@ -2401,6 +2455,7 @@ const fieldGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   gap: 12,
+  minWidth: 0,
 };
 
 const labelBlockStyle: React.CSSProperties = {
