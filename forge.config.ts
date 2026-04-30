@@ -3,8 +3,9 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 
 export default {
   packagerConfig: {
-  icon: "./src/assets/icon",
-},
+    icon: "./src/assets/icon",
+    osxSign: true,
+  },
   makers: [new MakerZIP({}, ['darwin'])],
   plugins: [
     new VitePlugin({

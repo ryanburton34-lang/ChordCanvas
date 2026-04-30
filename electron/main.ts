@@ -1,6 +1,19 @@
-import { app, BrowserWindow } from "electron";
+import { createRequire } from "node:module";
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const updateElectronAppModule = require("update-electron-app");
+const updateElectronApp =
+  updateElectronAppModule.default ?? updateElectronAppModule.updateElectronApp ?? updateElectronAppModule;
+
+if (typeof updateElectronApp === "function") {
+  updateElectronApp({
+    repo: "ryanburton34-lang/ChordCanvas",
+    updateInterval: "1 hour",
+  });
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +43,35 @@ function createWindow() {
     );
   }
 }
+
+ipcMain.handle("export-pdf", async (_event, title: string) => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (!win) return { ok: false };
+
+  const safeTitle =
+    (title || "ChordCanvas").replace(/[<>:"/\\|?*]+/g, "").trim() || "ChordCanvas";
+
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: "Export PDF",
+    defaultPath: `${safeTitle}.pdf`,
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+
+  if (canceled || !filePath) return { ok: false };
+
+  const pdfData = await win.webContents.printToPDF({
+    printBackground: true,
+    pageSize: "Letter",
+    margins: {
+      marginType: "none",
+    },
+  });
+
+  const fs = await import("node:fs/promises");
+  await fs.writeFile(filePath, pdfData);
+
+  return { ok: true, filePath };
+});
 
 app.whenReady().then(() => {
   createWindow();

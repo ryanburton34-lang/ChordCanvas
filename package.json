@@ -14,16 +14,18 @@
     "electron:start": "electron-forge start",
     "electron:package": "electron-forge package",
     "electron:make": "electron-forge make",
-"electron:make:universal": "electron-forge make --platform=darwin --arch=universal"
+    "electron:make:universal": "electron-forge make --platform=darwin --arch=universal"
   },
   "dependencies": {
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "update-electron-app": "^3.1.2"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.10.2",
     "@electron-forge/maker-zip": "^7.10.2",
     "@electron-forge/plugin-vite": "^7.10.2",
+    "@electron/osx-sign": "^2.4.0",
     "@electron/universal": "^3.0.4",
     "@eslint/js": "^9.39.4",
     "@types/node": "^24.12.2",
