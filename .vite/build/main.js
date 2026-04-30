@@ -10,15 +10,20 @@ function createWindow() {
 		height: 900,
 		minWidth: 1100,
 		minHeight: 700,
-		title: "Chord Chart Builder",
+		title: "ChordCanvas",
 		webPreferences: {
 			preload: path.join(__dirname, "preload.js"),
 			nodeIntegration: false,
 			contextIsolation: true
 		}
-	}).loadURL("http://localhost:5174");
+	}).loadURL("http://localhost:5173");
 }
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+	createWindow();
+	app.on("activate", () => {
+		if (BrowserWindow.getAllWindows().length === 0) createWindow();
+	});
+});
 app.on("window-all-closed", () => {
 	if (process.platform !== "darwin") app.quit();
 });

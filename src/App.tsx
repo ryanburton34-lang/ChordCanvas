@@ -1,5 +1,13 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+declare global {
+  interface Window {
+    chordCanvas?: {
+      exportPdf: (title: string) => Promise<{ ok: boolean; filePath?: string }>;
+    };
+  }
+}
+
 type ChartSize = "regular" | "large";
 type SectionType = "INTRO" | "VERSE" | "CHORUS" | "TURN" | "BRIDGE" | "INSTRUMENTAL" | "OUTRO";
 
@@ -339,7 +347,7 @@ function renderAngleMarkers(text: string) {
 
 function getChordTextStyle(compact: boolean): React.CSSProperties {
   return {
-    fontSize: compact ? 12 : 15,
+    fontSize: compact ? 16 : 20,
     fontWeight: 700,
     color: "#1d4ed8",
     fontFamily: "Arial, sans-serif",
@@ -548,7 +556,7 @@ function renderInlineLine(
                 {segment.annotation && (
                   <span
                     style={{
-                      fontSize: compact ? 11 : 14,
+                      fontSize: compact ? 14 : 18,
                       fontWeight: 700,
                       color: BRAND.accentRed,
                       fontStyle: "italic",
@@ -785,6 +793,7 @@ function HeaderBlock({
           marginTop: 12,
           paddingTop: 10,
           borderTop: "3px solid #111827",
+borderBottom: "none",
           textAlign: "left",
           fontSize: 13,
         }}
@@ -816,7 +825,6 @@ function FooterBlock({ chartCreator }: FooterBlockProps) {
         alignItems: "center",
         fontSize: 11,
         color: "#5B6B79",
-        borderTop: "1px solid #D1D5DB",
         paddingTop: 6,
       }}
     >
@@ -862,7 +870,7 @@ function SectionCard({
         <div
           style={{
             marginBottom: compact ? 8 : 12,
-            fontSize: compact ? 13 : 17,
+            fontSize: compact ? 17 : 21,
             fontWeight: 800,
             textAlign: "left",
             color: "#111827",
@@ -881,7 +889,7 @@ function SectionCard({
           style={{
             display: "grid",
             gap: compact ? 4 : 8,
-            fontSize: compact ? 13 : 18,
+            fontSize: compact ? 18 : 21,
             textAlign: "left",
             justifyItems: "start",
             color: "#111827",
@@ -1054,6 +1062,7 @@ export default function App() {
   const measureHeaderRef = useRef<HTMLDivElement | null>(null);
   const measureSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previousDocumentTitleRef = useRef<string>("ChordCanvas");
 
   const geom = useMemo(() => getPageGeometry(), []);
   const autoRoadmap = useMemo(() => buildRoadmapFromSections(sections), [sections]);
@@ -1106,21 +1115,30 @@ useEffect(() => {
 ]);
 
   useEffect(() => {
-    function handleAfterPrint() {
-      setIsPrinting(false);
-    }
+  function handleAfterPrint() {
+    document.title = previousDocumentTitleRef.current || "ChordCanvas";
+    setIsPrinting(false);
+  }
 
-    window.addEventListener("afterprint", handleAfterPrint);
-    return () => window.removeEventListener("afterprint", handleAfterPrint);
-  }, []);
+  window.addEventListener("afterprint", handleAfterPrint);
+  return () => window.removeEventListener("afterprint", handleAfterPrint);
+}, []);
 
   useEffect(() => {
-    if (!isPrinting) return;
-    const timeout = window.setTimeout(() => {
-      window.print();
-    }, 80);
-    return () => window.clearTimeout(timeout);
-  }, [isPrinting]);
+  if (!isPrinting) return;
+
+  const safeTitle =
+    (title || "ChordCanvas").replace(/[<>:"/\\|?*]+/g, "").trim() || "ChordCanvas";
+
+  previousDocumentTitleRef.current = document.title;
+  document.title = safeTitle;
+
+  const timeout = window.setTimeout(() => {
+    window.print();
+  }, 120);
+
+  return () => window.clearTimeout(timeout);
+}, [isPrinting, title]);
 
   useEffect(() => {
     function handleWheel(event: WheelEvent) {
@@ -1429,8 +1447,17 @@ localStorage.removeItem(AUTOSAVE_KEY);
   }
 
   function handlePrint() {
-    setIsPrinting(true);
+  setIsPrinting(true);
+}
+
+async function handleExportPdf() {
+  if (window.chordCanvas?.exportPdf) {
+    await window.chordCanvas.exportPdf(title || "ChordCanvas");
+    return;
   }
+
+  handlePrint();
+}
 
   return (
     <div
@@ -1447,9 +1474,9 @@ localStorage.removeItem(AUTOSAVE_KEY);
     >
       <style>{`
   @page {
-    size: letter portrait;
-    margin: ${PAGE.marginIn}in;
-  }
+  size: letter portrait;
+  margin: 0;
+}
 
   @media print {
     html, body {
@@ -1471,6 +1498,10 @@ localStorage.removeItem(AUTOSAVE_KEY);
     .screen-root {
       display: none !important;
     }
+
+.app-background-glow {
+  display: none !important;
+}
 
     [aria-hidden="true"] {
       display: none !important;
@@ -1516,36 +1547,39 @@ localStorage.removeItem(AUTOSAVE_KEY);
     }
 
     .print-paper-dom {
-      width: ${PAGE.widthIn}in !important;
-      height: ${PAGE.heightIn}in !important;
-      box-sizing: border-box !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      background: white !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      border: none !important;
-      overflow: hidden !important;
-      break-inside: avoid-page !important;
-      page-break-inside: avoid !important;
-    }
+  width: ${PAGE.widthIn}in !important;
+  height: ${PAGE.heightIn}in !important;
+  box-sizing: border-box !important;
+  padding: ${PAGE.marginIn}in !important;
+  margin: 0 !important;
+  background: white !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  overflow: hidden !important;
+  position: relative !important;
+  break-inside: avoid-page !important;
+  page-break-inside: avoid !important;
+}
 
     .print-sections-dom {
-      display: grid !important;
-      grid-template-columns: 1fr 1fr !important;
-      gap: ${PAGE.columnGapIn}in !important;
-      align-items: start !important;
-      break-inside: avoid-page !important;
-      page-break-inside: avoid !important;
-    }
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: ${PAGE.columnGapIn}in !important;
+  align-items: start !important;
+  break-inside: avoid-page !important;
+  page-break-inside: avoid !important;
+  overflow: hidden !important;
+}
 
     .print-column-dom {
-      display: grid !important;
-      gap: ${PAGE.sectionGapPx}px !important;
-      align-content: start !important;
-      break-inside: avoid-page !important;
-      page-break-inside: avoid !important;
-    }
+  display: grid !important;
+  gap: ${PAGE.sectionGapPx}px !important;
+  align-content: start !important;
+  break-inside: avoid-page !important;
+  page-break-inside: avoid !important;
+  overflow: hidden !important;
+}
 
     .print-section-wrap-dom,
     .print-section-card-dom,
@@ -1628,16 +1662,17 @@ localStorage.removeItem(AUTOSAVE_KEY);
 
       <div className="screen-root" style={{ height: "100%" }}>
         <div
-          style={{
-            maxWidth: 1680,
-            height: "100%",
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "460px minmax(0, 1fr)",
-            gap: 16,
-            alignItems: "stretch",
-          }}
-        >
+  style={{
+    width: "100%",
+    minWidth: 1680,
+    height: "100%",
+    margin: "0 auto",
+    display: "grid",
+    gridTemplateColumns: "minmax(460px, 520px) minmax(0, 1fr)",
+    gap: 16,
+    alignItems: "stretch",
+  }}
+>
           <div
             ref={editorColumnRef}
             className="editor-column"
@@ -2058,9 +2093,9 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
                   fontWeight: 700,
                   borderRadius: 14,
                 }}
-                onClick={handlePrint}
+                onClick={handleExportPdf}
               >
-                Save as PDF
+                Export PDF
               </button>
             </div>
           </div>
@@ -2296,10 +2331,11 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
       </div>
 
       <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          pointerEvents: "none",
+  className="app-background-glow"
+  style={{
+    position: "fixed",
+    inset: 0,
+    pointerEvents: "none",
           background: `radial-gradient(circle at top left, ${theme.backgroundGlowA}, transparent 28%), radial-gradient(circle at bottom right, ${theme.backgroundGlowB}, transparent 28%)`,
         }}
       />

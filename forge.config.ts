@@ -2,7 +2,9 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 
 export default {
-  packagerConfig: {},
+  packagerConfig: {
+  icon: "./src/assets/icon",
+},
   makers: [new MakerZIP({}, ['darwin'])],
   plugins: [
     new VitePlugin({

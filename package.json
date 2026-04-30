@@ -1,8 +1,8 @@
 {
   "name": "chord-chart-builder",
-  "productName": "Chord Chart Builder",
+  "productName": "ChordCanvas",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Desktop version of the chord chart builder",
   "type": "module",
   "main": ".vite/build/main.js",
@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "electron:start": "electron-forge start",
     "electron:package": "electron-forge package",
-    "electron:make": "electron-forge make"
+    "electron:make": "electron-forge make",
+"electron:make:universal": "electron-forge make --platform=darwin --arch=universal"
   },
   "dependencies": {
     "react": "^19.2.4",
@@ -23,6 +24,7 @@
     "@electron-forge/cli": "^7.10.2",
     "@electron-forge/maker-zip": "^7.10.2",
     "@electron-forge/plugin-vite": "^7.10.2",
+    "@electron/universal": "^3.0.4",
     "@eslint/js": "^9.39.4",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
