@@ -1,25 +1,38 @@
-import { createRequire } from "node:module";
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
-import path from "node:path";
+import { app, BrowserWindow, ipcMain, dialog, autoUpdater } from "electron";import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-const require = createRequire(import.meta.url);
-const updateElectronAppModule = require("update-electron-app");
-const updateElectronApp =
-  updateElectronAppModule.default ?? updateElectronAppModule.updateElectronApp ?? updateElectronAppModule;
-
-if (typeof updateElectronApp === "function") {
-  updateElectronApp({
-    repo: "ryanburton34-lang/ChordCanvas",
-    updateInterval: "1 hour",
-  });
-}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
+
+function setupAutoUpdates() {
+  if (!app.isPackaged) {
+    console.log("Skipping updates in development mode.");
+    return;
+  }
+
+  const feedUrl = `https://update.electronjs.org/ryanburton34-lang/ChordCanvas/${process.platform}-${process.arch}/${app.getVersion()}`;
+
+  autoUpdater.setFeedURL({ url: feedUrl });
+
+  autoUpdater.on("error", (error) => {
+    console.error("Auto-update error:", error);
+  });
+
+  autoUpdater.on("update-downloaded", () => {
+    autoUpdater.quitAndInstall();
+  });
+
+  setTimeout(() => {
+    autoUpdater.checkForUpdates();
+  }, 10000);
+
+  setInterval(() => {
+    autoUpdater.checkForUpdates();
+  }, 60 * 60 * 1000);
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -74,6 +87,7 @@ ipcMain.handle("export-pdf", async (_event, title: string) => {
 });
 
 app.whenReady().then(() => {
+  setupAutoUpdates();
   createWindow();
 
   app.on("activate", () => {
