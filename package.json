@@ -2,7 +2,7 @@
   "name": "chord-chart-builder",
   "productName": "ChordCanvas",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Desktop version of the chord chart builder",
   "type": "module",
   "main": ".vite/build/main.js",
