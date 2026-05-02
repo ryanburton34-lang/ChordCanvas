@@ -87,8 +87,11 @@ ipcMain.handle("export-pdf", async (_event, title: string) => {
 });
 
 app.whenReady().then(() => {
+  if (!process.mas) {
   setupAutoUpdates();
-  createWindow();
+}
+
+createWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

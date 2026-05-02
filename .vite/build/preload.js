@@ -1,4 +1,4 @@
-import { contextBridge as e, ipcRenderer as t } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 //#region electron/preload.ts
-e.exposeInMainWorld("chordCanvas", { exportPdf: (e) => t.invoke("export-pdf", e) });
+contextBridge.exposeInMainWorld("chordCanvas", { exportPdf: (title) => ipcRenderer.invoke("export-pdf", title) });
 //#endregion
