@@ -9,6 +9,34 @@ declare global {
 }
 
 type ChartSize = "regular" | "large";
+type LayoutMode = "single" | "double";
+type ChartStyleId = "classic" | "studio" | "minimal";
+
+type ChartStyle = {
+  id: ChartStyleId;
+  label: string;
+  fontFamily: string;
+  titleFontFamily: string;
+  titleTextTransform?: "none" | "uppercase";
+  titleLetterSpacing?: string;
+  sectionTitleTextTransform?: "none" | "uppercase";
+  sectionTitleLetterSpacing?: string;
+  lineHeight?: number;
+  chordFontFamily: string;
+  lyricColor: string;
+  chordColor: string;
+  annotationColor: string;
+  paperBackground: string;
+  sectionBackground: string;
+  sectionBorder: string;
+  sectionRadius: number;
+  sectionShadow: string;
+  headerLineColor: string;
+  headerMutedColor: string;
+  chipBackground: string;
+  chipText: string;
+  chipBorder: string;
+};
 type SectionType = "INTRO" | "VERSE" | "CHORUS" | "TURN" | "BRIDGE" | "INSTRUMENTAL" | "OUTRO";
 
 type Section = {
@@ -34,6 +62,8 @@ type SongData = {
   bpm: string;
   timeSignature: string;
   chartSize: ChartSize;
+  layoutMode: LayoutMode;
+  chartStyleId: ChartStyleId;
   sections: Section[];
 };
 
@@ -92,6 +122,108 @@ const BRAND = {
   dangerBorder: "#FECACA",
   dangerText: "#B91C1C",
 };
+
+
+const CHART_STYLES: Record<ChartStyleId, ChartStyle> = {
+  classic: {
+    id: "classic",
+    label: "Classic",
+    fontFamily: "Arial, sans-serif",
+    titleFontFamily: "Arial, sans-serif",
+    titleTextTransform: "none",
+    titleLetterSpacing: "-0.01em",
+    sectionTitleTextTransform: "uppercase",
+    sectionTitleLetterSpacing: "0",
+    lineHeight: 1.45,
+    chordFontFamily: "Arial, sans-serif",
+    lyricColor: "#111827",
+    chordColor: "#1d4ed8",
+    annotationColor: BRAND.accentRed,
+    paperBackground: "#f9fafb",
+    sectionBackground: "#f3f4f6",
+    sectionBorder: "#d1d5db",
+    sectionRadius: 4,
+    sectionShadow: "0 4px 10px rgba(0,0,0,0.08)",
+    headerLineColor: "#111827",
+    headerMutedColor: "#5B6B79",
+    chipBackground: BRAND.chip,
+    chipText: BRAND.primaryDeep,
+    chipBorder: "rgba(96,165,250,0.18)",
+  },
+  studio: {
+  id: "studio",
+  label: "Studio",
+
+  // Typography
+  fontFamily: "Helvetica, Arial, sans-serif",
+  titleFontFamily: "'Arial Black', Helvetica, Arial, sans-serif",
+  chordFontFamily: "'Courier New', monospace",
+
+  // Colors
+  lyricColor: "#111827",
+  chordColor: "#8B5CF6", // softer purple
+  annotationColor: "#C4B5FD",
+
+  // Paper + sections
+  paperBackground: "#ffffff",
+  sectionBackground: "#ffffff",
+  sectionBorder: "#C4B5FD",
+  sectionRadius: 4,
+  sectionShadow: "0 2px 6px rgba(124,58,237,0.12)",
+
+  // Header
+  headerLineColor: "#8B5CF6",
+  headerMutedColor: "#6B7280",
+
+  // Roadmap chips
+  chipBackground: "#F5F3FF",
+  chipText: "#7C3AED",
+  chipBorder: "#C4B5FD",
+},
+  minimal: {
+    id: "minimal",
+    label: "Minimal",
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    titleFontFamily: "Georgia, 'Times New Roman', serif",
+    titleTextTransform: "none",
+    titleLetterSpacing: "-0.02em",
+    sectionTitleTextTransform: "none",
+    sectionTitleLetterSpacing: "0",
+    lineHeight: 1.5,
+    chordFontFamily: "Georgia, 'Times New Roman', serif",
+    lyricColor: "#000000",
+    chordColor: "#000000",
+    annotationColor: "#000000",
+    paperBackground: "#ffffff",
+    sectionBackground: "#ffffff",
+    sectionBorder: "#d4d4d4",
+    sectionRadius: 0,
+    sectionShadow: "none",
+    headerLineColor: "#000000",
+    headerMutedColor: "#525252",
+    chipBackground: "#ffffff",
+    chipText: "#000000",
+    chipBorder: "#a3a3a3",
+  },
+};
+
+function getChartStyle(id: ChartStyleId | undefined): ChartStyle {
+  return CHART_STYLES[id ?? "classic"] ?? CHART_STYLES.classic;
+}
+
+function normalizeChartStyleId(id: unknown): ChartStyleId {
+  return id === "studio" || id === "minimal" ? id : "classic";
+}
+
+function getColumnWidthForLayout(geom: ReturnType<typeof getPageGeometry>, layoutMode: LayoutMode) {
+  return layoutMode === "single"
+    ? geom.contentWidthPx
+    : (geom.contentWidthPx - PAGE.columnGapIn * PAGE.pxPerIn) / 2;
+}
+
+function getSectionGapForStyle(chartStyle: ChartStyle) {
+  return chartStyle.id === "minimal" ? PAGE.sectionGapPx + 4 : PAGE.sectionGapPx;
+}
 
 const THEME: ThemeTokens = {
   background: "#121212",
@@ -327,13 +459,13 @@ function isBarLineContent(line: string) {
   return line.includes("|");
 }
 
-function renderAngleMarkers(text: string) {
+function renderAngleMarkers(text: string, chartStyle: ChartStyle) {
   return text.split(/(<>)/g).map((part, index) =>
     part === "<>" ? (
       <span
         key={index}
         style={{
-          color: BRAND.accentRed,
+          color: chartStyle.annotationColor,
           fontWeight: 700,
         }}
       >
@@ -345,12 +477,12 @@ function renderAngleMarkers(text: string) {
   );
 }
 
-function getChordTextStyle(compact: boolean): React.CSSProperties {
+function getChordTextStyle(compact: boolean, chartStyle: ChartStyle): React.CSSProperties {
   return {
     fontSize: compact ? 16 : 20,
     fontWeight: 700,
-    color: "#1d4ed8",
-    fontFamily: "Arial, sans-serif",
+    color: chartStyle.chordColor,
+    fontFamily: chartStyle.chordFontFamily,
     lineHeight: 1,
   };
 }
@@ -448,6 +580,7 @@ function renderBarLine(
   originalKey: string,
   chartKey: string,
   compact: boolean,
+  chartStyle: ChartStyle,
 ) {
   const parts = line.split(/(\[[^\]]+\]|<>)/g);
 
@@ -467,7 +600,7 @@ function renderBarLine(
             <span
               key={index}
               style={{
-                color: BRAND.accentRed,
+                color: chartStyle.annotationColor,
                 fontWeight: 700,
               }}
             >
@@ -482,13 +615,13 @@ function renderBarLine(
           const shown = formatChordToken(token, originalKey, chartKey);
 
           return (
-            <span key={index} style={getChordTextStyle(compact)}>
+            <span key={index} style={getChordTextStyle(compact, chartStyle)}>
               {shown}
             </span>
           );
         }
 
-        return <span key={index}>{renderAngleMarkers(part)}</span>;
+        return <span key={index}>{renderAngleMarkers(part, chartStyle)}</span>;
       })}
     </span>
   );
@@ -499,9 +632,10 @@ function renderInlineLine(
   originalKey: string,
   chartKey: string,
   compact: boolean,
+  chartStyle: ChartStyle,
 ) {
   if (isBarLineContent(line)) {
-    return renderBarLine(line, originalKey, chartKey, compact);
+    return renderBarLine(line, originalKey, chartKey, compact, chartStyle);
   }
 
   const segments = parseInlineInput(line);
@@ -532,7 +666,7 @@ function renderInlineLine(
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
               paddingTop: topPad,
-              lineHeight: 1.45,
+              lineHeight: chartStyle.lineHeight ?? 1.45,
               minHeight,
               verticalAlign: "top",
               textAlign: "left",
@@ -551,14 +685,17 @@ function renderInlineLine(
                   lineHeight: 1,
                 }}
               >
-                {shownChord && <span style={getChordTextStyle(compact)}>{shownChord}</span>}
+                {shownChord && <span style={getChordTextStyle(compact, chartStyle)}>{shownChord}</span>}
 
                 {segment.annotation && (
                   <span
                     style={{
                       fontSize: compact ? 14 : 18,
                       fontWeight: 700,
-                      color: BRAND.accentRed,
+                      color:
+  chartStyle.id === "studio"
+    ? "#000000"
+    : chartStyle.annotationColor,
                       fontStyle: "italic",
                     }}
                   >
@@ -567,7 +704,7 @@ function renderInlineLine(
                 )}
               </span>
             )}
-            <span>{renderAngleMarkers(segment.lyric)}</span>
+            <span>{renderAngleMarkers(segment.lyric, chartStyle)}</span>
           </span>
         );
       })}
@@ -655,9 +792,11 @@ function paginateSectionsWithHeights(
   headerHeight: number,
   geom: ReturnType<typeof getPageGeometry>,
   compact: boolean,
+  layoutMode: LayoutMode,
+  columnWidthPx: number,
 ): PrintPage[] {
   const pages: PrintPage[] = [];
-const footerReserve = PAGINATION.footerReservePx;
+  const footerReserve = PAGINATION.footerReservePx;
 
   const firstPageColumnLimit =
     geom.contentHeightPx -
@@ -690,9 +829,32 @@ const footerReserve = PAGINATION.footerReservePx;
     return currentHeight + sectionHeight <= currentLimit;
   }
 
+  if (layoutMode === "single") {
+    for (const section of sections) {
+      const measured = sectionHeights[section.id];
+      const fallback = estimateSectionHeight(section, columnWidthPx, compact);
+      const sectionHeight = (measured || fallback) + PAGE.sectionGapPx;
+
+      if (currentPage.left.length === 0 || canFit(leftHeight, sectionHeight)) {
+        currentPage.left.push(section);
+        leftHeight += sectionHeight;
+      } else {
+        pushCurrentPage();
+        currentPage.left.push(section);
+        leftHeight = sectionHeight;
+      }
+    }
+
+    if (currentPage.left.length || currentPage.right.length) {
+      pages.push(currentPage);
+    }
+
+    return pages.length ? pages : [{ left: [], right: [], isFirstPage: true }];
+  }
+
   for (const section of sections) {
     const measured = sectionHeights[section.id];
-    const fallback = estimateSectionHeight(section, geom.columnWidthPx, compact);
+    const fallback = estimateSectionHeight(section, columnWidthPx, compact);
     const sectionHeight = (measured || fallback) + PAGE.sectionGapPx;
 
     if (fillingLeft) {
@@ -732,6 +894,7 @@ type HeaderBlockProps = {
   chartKey: string;
   roadmapItems: string[];
   printMode?: boolean;
+  chartStyle: ChartStyle;
 };
 
 function HeaderBlock({
@@ -742,6 +905,7 @@ function HeaderBlock({
   chartKey,
   roadmapItems,
   printMode = false,
+  chartStyle,
 }: HeaderBlockProps) {
   return (
     <>
@@ -758,10 +922,21 @@ function HeaderBlock({
             style={{
               margin: 0,
               fontSize: 28,
-              color: "#000000",
-              fontWeight: 800,
-              letterSpacing: "-0.01em",
+              color:
+  chartStyle.id === "studio"
+    ? "#000000"
+    : chartStyle.lyricColor,
+              fontFamily: chartStyle.titleFontFamily,
+              fontWeight: 900,
+              letterSpacing:
+  chartStyle.id === "studio"
+    ? "0.03em"
+    : chartStyle.titleLetterSpacing ?? "-0.01em",
               textAlign: "left",
+              textTransform:
+  chartStyle.id === "classic" || chartStyle.id === "studio"
+    ? "uppercase"
+    : chartStyle.titleTextTransform ?? "none",
             }}
           >
             {title}
@@ -769,7 +944,7 @@ function HeaderBlock({
           <div
             style={{
               marginTop: 8,
-              color: "#5B6B79",
+              color: chartStyle.headerMutedColor,
               fontSize: 14,
               textAlign: "left",
             }}
@@ -778,7 +953,7 @@ function HeaderBlock({
           </div>
         </div>
 
-        <div style={{ textAlign: "right", fontSize: 14, lineHeight: 1.6 }}>
+        <div style={{ textAlign: "right", fontSize: 14, lineHeight: 1.6, color: chartStyle.lyricColor }}>
           <div>
             <strong>{bpm}</strong> bpm
           </div>
@@ -792,10 +967,11 @@ function HeaderBlock({
         style={{
           marginTop: 12,
           paddingTop: 10,
-          borderTop: "3px solid #111827",
+          borderTop: `3px solid ${chartStyle.headerLineColor}`,
 borderBottom: "none",
           textAlign: "left",
           fontSize: 13,
+          color: chartStyle.lyricColor,
         }}
       >
         <strong>Key:</strong> {chartKey}
@@ -803,7 +979,7 @@ borderBottom: "none",
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
         {roadmapItems.map((item, index) => (
-          <span key={`${item}-${index}`} style={printMode ? roadmapChipPrintStyle : roadmapChipStyle}>
+          <span key={`${item}-${index}`} style={getRoadmapChipStyle(chartStyle, printMode)}>
             {item}
           </span>
         ))}
@@ -814,9 +990,10 @@ borderBottom: "none",
 
 type FooterBlockProps = {
   chartCreator: string;
+  chartStyle: ChartStyle;
 };
 
-function FooterBlock({ chartCreator }: FooterBlockProps) {
+function FooterBlock({ chartCreator, chartStyle }: FooterBlockProps) {
   return (
     <div
       style={{
@@ -824,7 +1001,7 @@ function FooterBlock({ chartCreator }: FooterBlockProps) {
         justifyContent: "space-between",
         alignItems: "center",
         fontSize: 11,
-        color: "#5B6B79",
+        color: chartStyle.headerMutedColor,
         paddingTop: 6,
       }}
     >
@@ -840,6 +1017,7 @@ type SectionCardProps = {
   chartKey: string;
   compact?: boolean;
   printMode?: boolean;
+  chartStyle: ChartStyle;
 };
 
 function SectionCard({
@@ -848,9 +1026,10 @@ function SectionCard({
   chartKey,
   compact = true,
   printMode = false,
+  chartStyle,
 }: SectionCardProps) {
   const lines = section.content.split("\n");
-  const cardStyle = printMode ? printSectionCardStyle : sectionCardStyle;
+  const cardStyle = getSectionCardStyle(chartStyle, printMode);
 
   return (
     <div
@@ -868,22 +1047,46 @@ function SectionCard({
         }}
       >
         <div
-          style={{
-            marginBottom: compact ? 8 : 12,
-            fontSize: compact ? 17 : 21,
-            fontWeight: 800,
-            textAlign: "left",
-            color: "#111827",
-          }}
-        >
-          {section.title}
-          {section.note && (
-            <>
-              <span style={{ color: "#111827", fontWeight: 700 }}> - </span>
-              <span style={{ color: BRAND.accentRed, fontWeight: 700 }}>{section.note}</span>
-            </>
-          )}
-        </div>
+  style={{
+    marginBottom: compact ? 8 : 12,
+    fontSize: compact ? 17 : 21,
+    fontWeight: 900,
+    textAlign: "left",
+    color: chartStyle.lyricColor,
+    textTransform: "uppercase",
+    letterSpacing: chartStyle.sectionTitleLetterSpacing ?? "0",
+    fontFamily:
+  chartStyle.id === "studio"
+    ? chartStyle.titleFontFamily
+    : chartStyle.fontFamily,
+  }}
+>
+  {section.title}
+  {section.note && (
+    <>
+      <span style={{ color: chartStyle.lyricColor, fontWeight: 700 }}> - </span>
+      <span
+  style={{
+    color:
+      chartStyle.id === "studio"
+        ? "#000000"
+        : chartStyle.annotationColor,
+    fontWeight:
+  chartStyle.id === "studio"
+    ? 500
+    : 700,
+    textTransform: "none",
+    fontFamily:
+      chartStyle.id === "studio"
+        ? chartStyle.titleFontFamily
+        : chartStyle.fontFamily,
+  }}
+>
+  {section.note}
+</span>
+    </>
+  )}
+</div>
 
         <div
           style={{
@@ -892,7 +1095,8 @@ function SectionCard({
             fontSize: compact ? 18 : 21,
             textAlign: "left",
             justifyItems: "start",
-            color: "#111827",
+            color: chartStyle.lyricColor,
+            fontFamily: chartStyle.fontFamily,
           }}
         >
           {lines.map((line, index) => (
@@ -902,8 +1106,13 @@ function SectionCard({
               style={{
                 minHeight: compact ? 16 : 24,
                 whiteSpace: "pre-wrap",
-                lineHeight: 1.45,
-                fontFamily: isBarLineContent(line) ? "Courier New, monospace" : "Arial, sans-serif",
+                lineHeight: chartStyle.lineHeight ?? 1.45,
+                fontFamily:
+  chartStyle.id === "studio"
+    ? chartStyle.chordFontFamily
+    : isBarLineContent(line)
+    ? "Courier New, monospace"
+    : chartStyle.fontFamily,
                 textAlign: "left",
                 width: "100%",
                 wordBreak: "break-word",
@@ -911,10 +1120,10 @@ function SectionCard({
                 breakInside: "avoid",
                 pageBreakInside: "avoid",
                 position: "relative",
-                color: "#111827",
+                color: chartStyle.lyricColor,
               }}
             >
-              {renderInlineLine(line, originalKey, chartKey, compact)}
+              {renderInlineLine(line, originalKey, chartKey, compact, chartStyle)}
             </div>
           ))}
         </div>
@@ -929,6 +1138,8 @@ type PageSectionsProps = {
   chartKey: string;
   compact: boolean;
   printMode?: boolean;
+  layoutMode: LayoutMode;
+  chartStyle: ChartStyle;
 };
 
 function PageSections({
@@ -937,18 +1148,20 @@ function PageSections({
   chartKey,
   compact,
   printMode = false,
+  layoutMode,
+  chartStyle,
 }: PageSectionsProps) {
   return (
     <div
-      className={printMode ? "print-sections-dom" : undefined}
+      className={printMode ? `print-sections-dom ${layoutMode === "single" ? "single-column-dom" : ""}` : undefined}
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: `${PAGE.columnGapIn}in`,
+        gridTemplateColumns: layoutMode === "single" ? "1fr" : "1fr 1fr",
+        gap: layoutMode === "single" ? 0 : `${PAGE.columnGapIn}in`,
         alignItems: "start",
       }}
     >
-      <div className={printMode ? "print-column-dom" : "print-column"} style={{ display: "grid", gap: PAGE.sectionGapPx }}>
+      <div className={printMode ? "print-column-dom" : "print-column"} style={{ display: "grid", gap: getSectionGapForStyle(chartStyle) }}>
         {page.left.map((section) => (
           <SectionCard
             key={section.id}
@@ -957,11 +1170,12 @@ function PageSections({
             chartKey={chartKey}
             compact={compact}
             printMode={printMode}
+            chartStyle={chartStyle}
           />
         ))}
       </div>
 
-      <div className={printMode ? "print-column-dom" : "print-column"} style={{ display: "grid", gap: PAGE.sectionGapPx }}>
+      <div className={printMode ? "print-column-dom" : "print-column"} style={{ display: layoutMode === "single" ? "none" : "grid", gap: PAGE.sectionGapPx }}>
         {page.right.map((section) => (
           <SectionCard
             key={section.id}
@@ -970,6 +1184,7 @@ function PageSections({
             chartKey={chartKey}
             compact={compact}
             printMode={printMode}
+            chartStyle={chartStyle}
           />
         ))}
       </div>
@@ -1044,8 +1259,10 @@ export default function App() {
   const [bpm, setBpm] = useState("");
   const [timeSignature, setTimeSignature] = useState("");
   const [chartSize, setChartSize] = useState<ChartSize>("regular");
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("double");
+  const [chartStyleId, setChartStyleId] = useState<ChartStyleId>("classic");
   const [sections, setSections] = useState<Section[]>([]);
-  const [previewScale, setPreviewScale] = useState(0.65);
+  const [previewScale, setPreviewScale] = useState(0.55);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
   const [dragOverSectionId, setDragOverSectionId] = useState<string | null>(null);
@@ -1069,6 +1286,8 @@ export default function App() {
   const roadmapItems = useMemo(() => splitRoadmap(autoRoadmap), [autoRoadmap]);
   const theme = THEME;
   const chartCompact = chartSize === "regular";
+  const chartStyle = getChartStyle(chartStyleId);
+  const activeColumnWidth = useMemo(() => getColumnWidthForLayout(geom, layoutMode), [geom, layoutMode]);
   useEffect(() => {
   const saved = localStorage.getItem(AUTOSAVE_KEY);
 
@@ -1111,6 +1330,8 @@ useEffect(() => {
   bpm,
   timeSignature,
   chartSize,
+  layoutMode,
+  chartStyleId,
   sections,
 ]);
 
@@ -1154,7 +1375,7 @@ useEffect(() => {
       const delta = event.deltaY > 0 ? -0.03 : 0.03;
       setPreviewScale((current) => {
         const next = current + delta;
-        return Math.min(1.1, Math.max(0.55, Number(next.toFixed(2))));
+        return Math.min(1.5, Math.max(0.55, Number(next.toFixed(2))));
       });
     }
 
@@ -1232,6 +1453,8 @@ useEffect(() => {
     chartKey,
     roadmapItems.length,
     chartSize,
+    layoutMode,
+    chartStyleId,
   ]);
 
   const documentPages = useMemo(() => {
@@ -1241,8 +1464,10 @@ useEffect(() => {
       measuredHeaderHeight,
       geom,
       chartCompact,
+      layoutMode,
+      activeColumnWidth,
     );
-  }, [sections, measuredSectionHeights, measuredHeaderHeight, geom, chartCompact]);
+  }, [sections, measuredSectionHeights, measuredHeaderHeight, geom, chartCompact, layoutMode, activeColumnWidth]);
 
   const isSinglePrintPage = documentPages.length === 1;
 
@@ -1259,6 +1484,8 @@ useEffect(() => {
       bpm,
       timeSignature,
       chartSize,
+      layoutMode,
+      chartStyleId,
       sections,
     };
   }
@@ -1275,6 +1502,8 @@ useEffect(() => {
     setBpm(song.bpm ?? "");
     setTimeSignature(song.timeSignature ?? "");
     setChartSize(song.chartSize ?? "regular");
+    setLayoutMode(song.layoutMode ?? "double");
+    setChartStyleId(normalizeChartStyleId(song.chartStyleId));
     setSections(normalizedSections);
     setCollapsedSections(
       Object.fromEntries(normalizedSections.map((section) => [section.id, true])),
@@ -1387,6 +1616,8 @@ localStorage.removeItem(AUTOSAVE_KEY);
       bpm: "",
       timeSignature: "",
       chartSize: "regular",
+      layoutMode: "double",
+      chartStyleId: "classic",
       sections: [],
     };
 
@@ -1396,7 +1627,7 @@ localStorage.removeItem(AUTOSAVE_KEY);
   function saveSongToFile() {
     const payload = {
       format: "chordcanvas-song",
-      version: 3,
+      version: 4,
       exportedAt: new Date().toISOString(),
       song: getCurrentSongData(),
     };
@@ -1436,6 +1667,8 @@ localStorage.removeItem(AUTOSAVE_KEY);
         bpm: song?.bpm ?? "",
         timeSignature: song?.timeSignature ?? "",
         chartSize: song?.chartSize ?? "regular",
+        layoutMode: song?.layoutMode ?? "double",
+        chartStyleId: normalizeChartStyleId(song?.chartStyleId),
         sections: normalizeSections(song?.sections),
       });
     } catch (error) {
@@ -1572,6 +1805,15 @@ async function handleExportPdf() {
   overflow: hidden !important;
 }
 
+    .print-sections-dom.single-column-dom {
+  grid-template-columns: 1fr !important;
+  gap: 0 !important;
+}
+
+    .print-sections-dom.single-column-dom .print-column-dom:nth-child(2) {
+  display: none !important;
+}
+
     .print-column-dom {
   display: grid !important;
   gap: ${PAGE.sectionGapPx}px !important;
@@ -1628,15 +1870,16 @@ async function handleExportPdf() {
               timeSignature={timeSignature}
               chartKey={chartKey}
               roadmapItems={roadmapItems}
+              chartStyle={chartStyle}
             />
           </div>
 
           <div
             style={{
               marginTop: PAGE.firstPageExtraTopPx,
-              width: geom.columnWidthPx,
+              width: activeColumnWidth,
               display: "grid",
-              gap: PAGE.sectionGapPx,
+              gap: getSectionGapForStyle(chartStyle),
             }}
           >
             {sections.map((section) => (
@@ -1645,7 +1888,7 @@ async function handleExportPdf() {
                 ref={(el) => {
                   measureSectionRefs.current[section.id] = el;
                 }}
-                style={{ width: geom.columnWidthPx }}
+                style={{ width: activeColumnWidth }}
               >
                 <SectionCard
                   section={section}
@@ -1653,6 +1896,7 @@ async function handleExportPdf() {
                   chartKey={chartKey}
                   compact={chartCompact}
                   printMode
+                  chartStyle={chartStyle}
                 />
               </div>
             ))}
@@ -1663,12 +1907,13 @@ async function handleExportPdf() {
       <div className="screen-root" style={{ height: "100%" }}>
         <div
   style={{
-    width: "100%",
-    minWidth: 1680,
-    height: "100%",
-    margin: "0 auto",
-    display: "grid",
-    gridTemplateColumns: "minmax(460px, 520px) minmax(0, 1fr)",
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+  height: "100%",
+  margin: "0 auto",
+  display: "grid",
+  gridTemplateColumns: "minmax(420px, 520px) minmax(0, 1fr)",
     gap: 16,
     alignItems: "stretch",
   }}
@@ -1735,93 +1980,125 @@ style={{
               </div>
 
               <div style={fieldGridStyle}>
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Song Title</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </label>
+  {/* Row 1 */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Song Title</span>
+    <input
+      style={getInputStyle(theme)}
+      value={title}
+      onChange={(e) => setTitle(e.target.value)}
+    />
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Artist</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={artist}
-                    onChange={(e) => setArtist(e.target.value)}
-                  />
-                </label>
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Artist</span>
+    <input
+      style={getInputStyle(theme)}
+      value={artist}
+      onChange={(e) => setArtist(e.target.value)}
+    />
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>BPM</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={bpm}
-                    onChange={(e) => setBpm(e.target.value)}
-                  />
-                </label>
+  {/* Row 2 */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>BPM</span>
+    <input
+      style={getInputStyle(theme)}
+      value={bpm}
+      onChange={(e) => setBpm(e.target.value)}
+    />
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Time Signature</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={timeSignature}
-                    onChange={(e) => setTimeSignature(e.target.value)}
-                  />
-                </label>
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Time Signature</span>
+    <input
+      style={getInputStyle(theme)}
+      value={timeSignature}
+      onChange={(e) => setTimeSignature(e.target.value)}
+    />
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Original Key</span>
-                  <select
-                    style={{ ...getInputStyle(theme), width: "100%" }}
-                    value={originalKey}
-                    onChange={(e) => setOriginalKey(e.target.value)}
-                  >
-                    {KEY_OPTIONS.map((key) => (
-                      <option key={key} value={key}>
-                        {key}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+  {/* Row 3 */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Original Key</span>
+    <select
+      style={{ ...getInputStyle(theme), width: "100%" }}
+      value={originalKey}
+      onChange={(e) => setOriginalKey(e.target.value)}
+    >
+      {KEY_OPTIONS.map((key) => (
+        <option key={key} value={key}>
+          {key}
+        </option>
+      ))}
+    </select>
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Chart Key</span>
-                  <select
-                    style={{ ...getInputStyle(theme), width: "100%" }}
-                    value={chartKey}
-                    onChange={(e) => setChartKey(e.target.value)}
-                  >
-                    {KEY_OPTIONS.map((key) => (
-                      <option key={key} value={key}>
-                        {key}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Chart Key</span>
+    <select
+      style={{ ...getInputStyle(theme), width: "100%" }}
+      value={chartKey}
+      onChange={(e) => setChartKey(e.target.value)}
+    >
+      {KEY_OPTIONS.map((key) => (
+        <option key={key} value={key}>
+          {key}
+        </option>
+      ))}
+    </select>
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Chart Creator</span>
-                  <input
-                    style={getInputStyle(theme)}
-                    value={chartCreator}
-                    onChange={(e) => setChartCreator(e.target.value)}
-                  />
-                </label>
+  {/* Row 4 (NEW POSITION) */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Column Layout</span>
+    <select
+      style={{ ...getInputStyle(theme), width: "100%" }}
+      value={layoutMode}
+      onChange={(e) => setLayoutMode(e.target.value as "single" | "double")}
+    >
+      <option value="double">Two Column</option>
+      <option value="single">Single Column</option>
+    </select>
+  </label>
 
-                <label style={{ ...labelBlockStyle, color: theme.text }}>
-                  <span>Chart Size</span>
-                  <select
-                    style={{ ...getInputStyle(theme), width: "100%" }}
-                    value={chartSize}
-                    onChange={(e) => setChartSize(e.target.value as ChartSize)}
-                  >
-                    <option value="regular">Regular</option>
-                    <option value="large">Large</option>
-                  </select>
-                </label>
-              </div>
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+  <span>Chart Style</span>
+  <select
+    style={{ ...getInputStyle(theme), width: "100%" }}
+    value={chartStyleId}
+    onChange={(e) => setChartStyleId(e.target.value as ChartStyleId)}
+  >
+    {Object.values(CHART_STYLES).map((style) => (
+      <option key={style.id} value={style.id}>
+        {style.label}
+      </option>
+    ))}
+  </select>
+</label>
+
+  {/* Row 5 (SWAPPED) */}
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Chart Size</span>
+    <select
+      style={{ ...getInputStyle(theme), width: "100%" }}
+      value={chartSize}
+      onChange={(e) => setChartSize(e.target.value as ChartSize)}
+    >
+      <option value="regular">Regular</option>
+      <option value="large">Large</option>
+    </select>
+  </label>
+
+  <label style={{ ...labelBlockStyle, color: theme.text }}>
+    <span>Chart Creator</span>
+    <input
+      style={getInputStyle(theme)}
+      value={chartCreator}
+      onChange={(e) => setChartCreator(e.target.value)}
+    />
+  </label>
+</div>
 
               {chartKey === "#" && (
                 <p style={{ ...helpTextStyle, marginTop: 12, color: theme.muted }}>
@@ -2128,45 +2405,121 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  gap: 8,
-                  marginBottom: 10,
+                  gap: 12,
+                  marginBottom: 12,
                   fontSize: 13,
                   color: theme.muted,
                   position: "sticky",
                   top: 0,
                   background: theme.toolbarBg,
                   zIndex: 2,
-                  paddingBottom: 6,
+                  padding: "10px 10px 12px",
+                  marginLeft: -10,
+                  marginRight: -10,
+                  borderBottom: `1px solid ${theme.border}`,
                   flex: "0 0 auto",
                   flexWrap: "wrap",
                 }}
               >
                 <div
                   style={{
-                    fontWeight: 700,
+                    fontWeight: 800,
                     color: theme.text,
                     letterSpacing: "-0.01em",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
                   }}
                 >
                   Live Canvas
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span>Zoom: {Math.round(previewScale * 100)}%</span>
-                  <button
-                    style={getSecondaryButtonStyleSmall(theme)}
-                    onClick={() => setPreviewScale((s) => Math.max(0.55, Number((s - 0.05).toFixed(2))))}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: 6,
+                    borderRadius: 999,
+                    background: theme.panelSoft,
+                    border: `1px solid ${theme.border}`,
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+                  }}
+                >
+                  <span
+                    style={{
+                      minWidth: 48,
+                      textAlign: "center",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      color: theme.text,
+                      letterSpacing: "0.01em",
+                    }}
                   >
-                    -
-                  </button>
+                    {Math.round(previewScale * 100)}%
+                  </span>
+
                   <button
-                    style={getSecondaryButtonStyleSmall(theme)}
-                    onClick={() => setPreviewScale((s) => Math.min(1.1, Number((s + 0.05).toFixed(2))))}
+                    type="button"
+                    aria-label="Zoom out"
+                    title="Zoom out 5%"
+                    style={{
+                      ...getSecondaryButtonStyleSmall(theme),
+                      width: 30,
+                      height: 30,
+                      padding: 0,
+                      borderRadius: 999,
+                      fontSize: 18,
+                      lineHeight: 1,
+                      display: "grid",
+                      placeItems: "center",
+                    }}
+                    onClick={() =>
+                      setPreviewScale((s) =>
+                        Math.max(0.55, Number((s - 0.05).toFixed(2))),
+                      )
+                    }
+                  >
+                    −
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-label="Zoom in"
+                    title="Zoom in 5%"
+                    style={{
+                      ...getSecondaryButtonStyleSmall(theme),
+                      width: 30,
+                      height: 30,
+                      padding: 0,
+                      borderRadius: 999,
+                      fontSize: 18,
+                      lineHeight: 1,
+                      display: "grid",
+                      placeItems: "center",
+                    }}
+                    onClick={() =>
+                      setPreviewScale((s) =>
+                        Math.min(1.5, Number((s + 0.05).toFixed(2))),
+                      )
+                    }
                   >
                     +
                   </button>
-                  <button style={getSecondaryButtonStyleSmall(theme)} onClick={() => setPreviewScale(0.65)}>
-                    Reset Zoom
+
+                  <button
+                    type="button"
+                    style={{
+                      ...getSecondaryButtonStyleSmall(theme),
+                      height: 30,
+                      padding: "0 12px",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                    onClick={() => setPreviewScale(0.55)}
+                  >
+                    Reset
                   </button>
                 </div>
               </div>
@@ -2179,6 +2532,7 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
                   minWidth: 0,
                   overflowX: "auto",
                   overflowY: "auto",
+                  maxWidth: "100%",
                   background: theme.panelMuted,
                   borderRadius: 16,
                   padding: 12,
@@ -2186,22 +2540,24 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
               >
                 <div
                   className="preview-scroll-content"
-                  style={{
-                    display: "inline-block",
-                    minWidth: "100%",
-                    width: Math.max(scaledPaperWidth, 1),
-                  }}
+style={{
+  display: "block",
+  width: scaledPaperWidth + 16,
+minWidth: scaledPaperWidth + 16,
+  paddingRight: 0,
+  paddingBottom: 48,
+  boxSizing: "content-box",
+}}
                 >
                   <div
                     className="document-pages"
-                    style={{
-                      display: "grid",
-                      gap: 24,
-                      justifyContent: "start",
-                      alignContent: "start",
-                      width: "max-content",
-                      minWidth: scaledPaperWidth,
-                    }}
+style={{
+  display: "grid",
+  gap: 24,
+  justifyContent: "start",
+  alignContent: "start",
+  width: "fit-content",
+}}
                   >
                     {documentPages.map((page, pageIndex) => (
                       <div
@@ -2217,7 +2573,7 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
                         <div
                           className="preview-paper"
                           style={{
-                            ...previewPaperStyle,
+                            ...getPaperStyle(chartStyle, false),
                             width: `${PAGE.widthIn}in`,
                             height: `${PAGE.heightIn}in`,
                             padding: `${PAGE.marginIn}in`,
@@ -2234,6 +2590,7 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
                               timeSignature={timeSignature}
                               chartKey={chartKey}
                               roadmapItems={roadmapItems}
+                              chartStyle={chartStyle}
                             />
                           )}
 
@@ -2248,6 +2605,8 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
     originalKey={originalKey}
     chartKey={chartKey}
     compact={chartCompact}
+    layoutMode={layoutMode}
+    chartStyle={chartStyle}
   />
 </div>
 
@@ -2259,7 +2618,7 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
     bottom: `${PAGE.marginIn}in`,
   }}
 >
-  <FooterBlock chartCreator={chartCreator} />
+  <FooterBlock chartCreator={chartCreator} chartStyle={chartStyle} />
 </div>
                         </div>
                       </div>
@@ -2281,7 +2640,7 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
             <div
               className="print-paper-dom"
               style={{
-                ...printPaperStyle,
+                ...getPaperStyle(chartStyle, true),
                 width: `${PAGE.widthIn}in`,
                 height: `${PAGE.heightIn}in`,
                 padding: `${PAGE.marginIn}in`,
@@ -2297,6 +2656,7 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
                   chartKey={chartKey}
                   roadmapItems={roadmapItems}
                   printMode
+                  chartStyle={chartStyle}
                 />
               )}
 
@@ -2312,6 +2672,8 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
     chartKey={chartKey}
     compact={chartCompact}
     printMode
+    layoutMode={layoutMode}
+    chartStyle={chartStyle}
   />
 </div>
 
@@ -2323,7 +2685,7 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
     bottom: `${PAGE.marginIn}in`,
   }}
 >
-  <FooterBlock chartCreator={chartCreator} />
+  <FooterBlock chartCreator={chartCreator} chartStyle={chartStyle} />
 </div>
             </div>
           </div>
@@ -2466,26 +2828,20 @@ function toolbarStyle(theme: ThemeTokens): React.CSSProperties {
   };
 }
 
-const previewPaperStyle: React.CSSProperties = {
-  background: "#f9fafb",
-  color: "#111827",
-  borderRadius: 12,
-  boxSizing: "border-box",
-  margin: "0",
-  position: "relative",
-};
-
-const printPaperStyle: React.CSSProperties = {
-  background: "white",
-  color: "#111827",
-  borderRadius: 0,
-  padding: 0,
-  width: "100%",
-  minHeight: "auto",
-  boxSizing: "border-box",
-  margin: "0",
-  position: "relative",
-};
+function getPaperStyle(chartStyle: ChartStyle, printMode: boolean): React.CSSProperties {
+  return {
+    background: printMode ? "white" : chartStyle.paperBackground,
+    color: chartStyle.lyricColor,
+    borderRadius: printMode ? 0 : 12,
+    padding: printMode ? 0 : undefined,
+    width: printMode ? "100%" : undefined,
+    minHeight: printMode ? "auto" : undefined,
+    boxSizing: "border-box",
+    margin: "0",
+    position: "relative",
+    fontFamily: chartStyle.fontFamily,
+  };
+}
 
 const fieldGridStyle: React.CSSProperties = {
   display: "grid",
@@ -2515,58 +2871,38 @@ const helpTextStyle: React.CSSProperties = {
   lineHeight: 1.5,
 };
 
-const roadmapChipStyle: React.CSSProperties = {
-  background: BRAND.chip,
-  borderRadius: 999,
-  padding: "4px 8px",
-  fontSize: 11,
-  fontWeight: 700,
-  color: BRAND.primaryDeep,
-  border: `1px solid rgba(96,165,250,0.18)`,
-};
+function getRoadmapChipStyle(chartStyle: ChartStyle, printMode: boolean): React.CSSProperties {
+  return {
+    background: chartStyle.chipBackground,
+    borderRadius: 999,
+    padding: "4px 8px",
+    fontSize: 11,
+    fontWeight: 700,
+    color: chartStyle.chipText,
+    border: `1px solid ${chartStyle.chipBorder}`,
+    boxShadow: printMode ? "none" : undefined,
+    fontFamily: chartStyle.fontFamily,
+  };
+}
 
-const roadmapChipPrintStyle: React.CSSProperties = {
-  background: BRAND.chip,
-  borderRadius: 999,
-  padding: "4px 8px",
-  fontSize: 11,
-  fontWeight: 700,
-  color: BRAND.primaryDeep,
-  border: `1px solid rgba(96,165,250,0.18)`,
-  boxShadow: "none",
-};
-
-const sectionCardStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  border: "1px solid #d1d5db",
-  boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
-  borderRadius: 4,
-  padding: 14,
-  textAlign: "left",
-  breakInside: "avoid",
-  pageBreakInside: "avoid",
-  marginBottom: 0,
-  display: "block",
-  width: "100%",
-  boxSizing: "border-box",
-  color: "#111827",
-};
-
-const printSectionCardStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  border: "1px solid #d1d5db",
-  boxShadow: "none",
-  borderRadius: 4,
-  padding: 14,
-  textAlign: "left",
-  breakInside: "avoid",
-  pageBreakInside: "avoid",
-  marginBottom: 0,
-  display: "block",
-  width: "100%",
-  boxSizing: "border-box",
-  color: "#111827",
-};
+function getSectionCardStyle(chartStyle: ChartStyle, printMode: boolean): React.CSSProperties {
+  return {
+    background: chartStyle.sectionBackground,
+    border: `1px solid ${chartStyle.sectionBorder}`,
+    boxShadow: printMode ? "none" : chartStyle.sectionShadow,
+    borderRadius: chartStyle.sectionRadius,
+    padding: 14,
+    textAlign: "left",
+    breakInside: "avoid",
+    pageBreakInside: "avoid",
+    marginBottom: 0,
+    display: "block",
+    width: "100%",
+    boxSizing: "border-box",
+    color: chartStyle.lyricColor,
+    fontFamily: chartStyle.fontFamily,
+  };
+}
 
 const dropIndicatorStyle: React.CSSProperties = {
   position: "absolute",
