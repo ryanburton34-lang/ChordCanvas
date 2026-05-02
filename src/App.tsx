@@ -2398,7 +2398,12 @@ A[G]mazing grace, how [C]sweet the [G]sound`}
                 overflow: "hidden",
               }}
             >
-              <div style={panelAccentLineStyle} />
+              <div
+  style={{
+    ...panelAccentLineStyle,
+    marginTop: -1,
+  }}
+/>
               <div
                 className="screen-preview-toolbar"
                 style={{
@@ -2915,9 +2920,10 @@ const dropIndicatorStyle: React.CSSProperties = {
   transition: "all 120ms ease",
 };
 
-const panelAccentLineStyle: React.CSSProperties = {
-  height: 2,
-  borderRadius: 999,
+const panelAccentLineStyle = {
+  height: 3,
   background: BRAND.primary,
-  marginBottom: 14,
+  borderRadius: 999,
+  marginTop: 4,     // 👈 add this
+  marginBottom: 16,
 };
